@@ -1,9 +1,0 @@
-{
-  "name": "Meu Treino",
-  "short_name": "Meu Treino",
-  "start_url": "./",
-  "display": "standalone",
-  "background_color": "#E8EDF1",
-  "theme_color": "#E8EDF1",
-  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
-}
