@@ -443,45 +443,7 @@ function classPA(p){
   return ['ok','Normal'];
 }
 function renderSaude(){
-  const PA = (S.pressao||[]).slice().sort((a,b) => (a.data+a.hora) < (b.data+b.hora) ? -1 : 1);
   let h = '<h1>Saúde</h1>';
-  h += '<h2 class="mh">Pressão arterial</h2>';
-  h += chart([{ pts:PA.map(p => ({ l:fmtD(p.data), v:p.sis })), color:'var(--danger)' }, { pts:PA.map(p => ({ l:fmtD(p.data), v:p.dia })), color:'var(--accent)' }]);
-  if (PA.length > 1) h += '<div class="legend"><span><i style="background:var(--danger)"></i>Máxima</span><span><i style="background:var(--accent)"></i>Mínima</span></div>';
-  h += `<div class="fields">
-    <label>Data<input type="date" id="p_data" value="${hoje()}"></label>
-    <label>Hora<input type="time" id="p_hora" value="${horaAgora()}"></label>
-    <label>Máxima (ex.: 120)<input inputmode="numeric" id="p_sis"></label>
-    <label>Mínima (ex.: 80)<input inputmode="numeric" id="p_dia"></label>
-    <label class="full">Batimentos (opcional)<input inputmode="numeric" id="p_bpm"></label></div>
-    <button class="btn primary" data-act="padd">Salvar medição</button>`;
-  if (PA.length){
-    h += '<ul class="list">' + PA.slice().reverse().slice(0,15).map(p => {
-      const c = classPA(p);
-      return `<li><span class="ld">${fmtD(p.data)}</span><span class="lm"><span class="rn">${p.sis}/${p.dia}${p.bpm?' · '+p.bpm+' bpm':''}</span><span class="rd">${esc(p.hora||'')}</span></span><span class="tag ${c[0]}">${c[1]}</span><button class="rm" data-act="prem" data-id="${p.id}" aria-label="Apagar">×</button></li>`;
-    }).join('') + '</ul>';
-    h += '<p class="tip" style="margin-top:8px">Referência geral: abaixo de 130/85 é normal. Medições repetidas a partir de 140/90 merecem conversa com o médico.</p>';
-  }
-
-  h += '<h2 class="mh">Exames de sangue</h2>';
-  h += `<div class="fields">
-    <label>Data<input type="date" id="e_data" value="${hoje()}"></label>
-    <label>Exame<input id="e_nome" list="exlist" placeholder="Ex.: Hematócrito"></label>
-    <label>Resultado<input inputmode="decimal" id="e_valor"></label>
-    <label>Unidade<input id="e_uni" placeholder="Ex.: %"></label></div>
-    <datalist id="exlist">${EXAMES.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
-    <button class="btn primary" data-act="eadd2">Salvar resultado</button>`;
-  const grupos = {};
-  (S.exames||[]).forEach(e => { (grupos[e.nome] = grupos[e.nome] || []).push(e); });
-  const nomes = Object.keys(grupos).sort();
-  if (nomes.length){
-    h += '<ul class="list">' + nomes.map(n => {
-      const g = grupos[n].sort((a,b) => a.data < b.data ? -1 : 1), u = g[g.length-1];
-      const prev = g.slice(0,-1).reverse().slice(0,3).map(x => fmtD(x.data) + ': ' + esc(x.valor)).join(' · ');
-      return `<li><span class="lm"><span class="rn">${esc(n)}: ${esc(u.valor)} ${esc(u.unidade||'')}</span><span class="rd">${fmtD(u.data)}${prev ? ' · antes ' + prev : ''}</span></span><button class="rm" data-act="erem" data-id="${u.id}" aria-label="Apagar último">×</button></li>`;
-    }).join('') + '</ul>';
-  }
-
   h += `<h2 class="mh">Lesões e observações</h2><div class="f" style="margin-top:0"><textarea rows="5" data-f="snotas">${esc((S.saude||{}).notas||'')}</textarea></div>`;
   h += `<h2 class="mh">Conta</h2><p class="muted small">${esc(user && user.email || '')}</p><button class="btn danger" data-act="logout">Sair</button>`;
   VIEW.innerHTML = h;
