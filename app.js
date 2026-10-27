@@ -12,7 +12,8 @@ const CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 
 const ICON = {
   l: '<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
   r: '<svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>',
-  swap: '<svg viewBox="0 0 24 24"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>'
+  swap: '<svg viewBox="0 0 24 24"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>',
+  x: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>'
 };
 const EXAMES = ['Hematócrito','Hemoglobina','Testosterona total','Testosterona livre','Estradiol','PSA','TGO','TGP','Colesterol total','LDL','HDL','Triglicerídeos','Glicemia','Creatinina','Vitamina D','Ferritina'];
 
@@ -661,7 +662,7 @@ function renderHoje(){
   if (t.itens.length && atual >= 0){
     const e = t.itens[atual], r = getEx(L, e), nOk = r.series.filter(s => s.ok).length, last = lastSets(e, cur), sg = sugestao(e, cur);
     const kg = (r.series.find(s => !s.ok && s.kg) || {}).kg || (sg ? fmtN(sg.kg) : '') || (last && last[nOk] && last[nOk].kg) || '';
-    next = `<button class="tile wide next2" data-act="goex" data-ex="${e.id}"><span class="nnum">${pad2(atual + 1)}</span><span class="nx"><span class="nl">${nOk ? 'Continuar' : exOk ? 'Próximo exercício' : 'Comece por'}</span><span class="nn">${esc(e.nome)}</span><span class="nd">Série ${Math.min(nOk + 1, r.series.length)} de ${r.series.length}${kg ? ', ' + esc(kg) + ' kg' : ''}</span></span><span class="na" aria-hidden="true">${ICON.r}</span></button>`;
+    next = `<button class="tile wide next2" data-act="modo" data-ex="${e.id}"><span class="nnum">${pad2(atual + 1)}</span><span class="nx"><span class="nl">${nOk ? 'Continuar' : exOk ? 'Próximo exercício' : 'Comece por'}</span><span class="nn">${esc(e.nome)}</span><span class="nd">Série ${Math.min(nOk + 1, r.series.length)} de ${r.series.length}${kg ? ', ' + esc(kg) + ' kg' : ''}</span></span><span class="na" aria-hidden="true">${ICON.r}</span></button>`;
   } else if (t.itens.length && !L.fim){
     next = `<button class="tile wide next2 done" data-act="tfim"><span class="nnum">✓</span><span class="nx"><span class="nl">Treino completo</span><span class="nn">Finalizar e ver o resumo</span></span><span class="na" aria-hidden="true">${ICON.r}</span></button>`;
   }
@@ -728,6 +729,7 @@ function renderHoje(){
   if (evs.length) h += panel(isToday ? 'Ainda hoje' : 'Compromissos', IC.agenda, evs.map(o => evtHtml(o, false)).join(''));
 
   let b = '';
+  if (t.itens.length) b += `<button class="btn primary modo-btn" data-act="modo">${t.itens.some(x => !exFeito(L, x)) ? '▶ Abrir modo treino' : '▶ Ver resumo no modo treino'}</button>`;
   if (P().obs && t.itens.length) b += `<p class="tip">${esc(P().obs)}</p>`;
   if (!t.itens.length && !t.cardio && !(t.atividades||[]).length) b += '<p class="muted">Nada planejado pra hoje. Dá pra editar na aba Plano.</p>';
   t.itens.forEach(e => {
@@ -959,9 +961,145 @@ function renderAgenda(){
   VIEW.innerHTML = h;
 }
 
+/* ---------- MODO TREINO (tela cheia) ---------- */
+let modo = null;            // { ex, rest:{ fim, total }, fimTreino:false }
+let modoTick = null, wakeLock = null, audioCtx = null;
+const DESCANSO_PADRAO = 90;
+const ehTempo = e => /\d+\s*(s|seg|min)\b/i.test(String(e.reps || ''));
+function exFeito(L, e){ const r = L.treino[e.id]; return !!(r && r.series.length && r.series.every(s => s.ok)); }
+function proxExercicio(L, t, aPartirDe){
+  const n = t.itens.length, ini = Math.max(0, t.itens.findIndex(x => x.id === aPartirDe));
+  for (let k = 1; k <= n; k++){ const e = t.itens[(ini + k) % n]; if (!exFeito(L, e)) return e; }
+  return null;
+}
+function serieAtual(r){ const k = r.series.findIndex(s => !s.ok); return k < 0 ? r.series.length - 1 : k; }
+async function manterTelaAcesa(on){
+  try {
+    if (on && 'wakeLock' in navigator && !wakeLock){ wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); }
+    if (!on && wakeLock){ await wakeLock.release(); wakeLock = null; }
+  } catch(e){}
+}
+function bip(){
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.22, 0.44].forEach((t, k) => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.frequency.value = k === 2 ? 1320 : 880; o.connect(g); g.connect(audioCtx.destination);
+      const t0 = audioCtx.currentTime + t; g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.35, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18);
+      o.start(t0); o.stop(t0 + 0.2);
+    });
+  } catch(e){}
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+}
+function abrirModo(exId){
+  const L = dia(cur), t = treinoDo(cur);
+  if (!t || !t.itens.length) return;
+  let e = t.itens.find(x => x.id === exId);
+  if (!e || exFeito(L, e)) e = t.itens.find(x => !exFeito(L, x)) || t.itens[0];
+  modo = { ex: e.id, rest: null, fimTreino: !t.itens.some(x => !exFeito(L, x)) };
+  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume && audioCtx.resume(); } catch(_){}
+  manterTelaAcesa(true);
+  render(); window.scrollTo(0, 0);
+}
+function fecharModo(){
+  modo = null; clearInterval(modoTick); manterTelaAcesa(false);
+  render(); window.scrollTo(0, 0);
+}
+function renderModo(){
+  const L = dia(cur), t = treinoDo(cur);
+  const e = t.itens.find(x => x.id === modo.ex) || t.itens[0];
+  const r = getEx(L, e); r.nome = e.nome;
+  const k = serieAtual(r), s = r.series[k], last = lastSets(e, cur), sg = sugestao(e, cur), tempo = ehTempo(e);
+  if (!s.ok){
+    if (!s.kg && !tempo) s.kg = kgPadrao(e, r, k);
+    if (!s.reps) s.reps = numReps(e.reps);
+  }
+  const idx = t.itens.indexOf(e);
+  const crono = L.inicio ? `<span class="mtime"><i class="live" aria-hidden="true"></i><span id="mdur">${fmtDur((L.fim || Date.now()) - L.inicio)}</span></span>` : '<span class="mtime muted">0:00</span>';
+  const segs = t.itens.map(x => `<span class="${exFeito(L, x) ? 'ok' : x.id === e.id ? 'cur' : ''}"></span>`).join('');
+  let h = `<div class="modo"><header class="mtop"><button class="mx" data-act="msair" aria-label="Sair do modo treino">${ICON.x}</button><span class="mtn">${esc(t.nome)}</span>${crono}</header><div class="msegs" style="grid-template-columns:repeat(${t.itens.length},minmax(0,1fr))">${segs}</div>`;
+
+  // treino completo
+  if (modo.fimTreino){
+    const R = resumo(L, cur);
+    h += `<div class="mfim"><span class="mfi" aria-hidden="true">🏁</span><h1>Treino completo</h1><p class="muted">${t.itens.length} exercícios, ${R.series} séries, ${Math.round(R.vol).toLocaleString('pt-BR')} kg de volume${R.prs.length ? ', ' + R.prs.length + (R.prs.length > 1 ? ' recordes' : ' recorde') : ''}.</p></div>
+      <div class="mgrow"></div><button class="mbig" data-act="mfinal">Finalizar e ver o resumo</button><div class="mlinks"><button class="mlink" data-act="msair">Voltar sem finalizar</button></div></div>`;
+    return h;
+  }
+
+  // descanso
+  if (modo.rest){
+    const rest = Math.max(0, Math.ceil((modo.rest.fim - Date.now()) / 1000)), tot = modo.rest.total, C = 691.2;
+    const feita = modo.rest.feita || {};
+    const ne = t.itens.find(x => x.id === modo.ex), nr = getEx(L, ne), nk = serieAtual(nr), nlast = lastSets(ne, cur), nsg = sugestao(ne, cur);
+    const nkg = nr.series[nk].kg || kgPadrao(ne, nr, nk);
+    h += `<div class="mdone"><span class="mck">${CHECK}</span><span class="lm"><b>${esc(feita.titulo || 'Série feita')}</b><span>${esc(feita.det || '')}</span></span>${feita.pr ? '<span class="mtro" aria-hidden="true">🏆</span>' : ''}</div>
+      <div class="mrest"><span class="mrl">Descanso</span><div class="mring"><svg viewBox="0 0 250 250" aria-hidden="true"><circle cx="125" cy="125" r="110" class="rb"/><circle id="mrf" cx="125" cy="125" r="110" class="rf" stroke-dasharray="${C}" stroke-dashoffset="${(C * (1 - rest / tot)).toFixed(1)}"/></svg><div class="mrv"><b id="mrv">${Math.floor(rest / 60)}:${pad2(rest % 60)}</b><span>de ${Math.floor(tot / 60)}:${pad2(tot % 60)}</span></div></div>
+      <div class="m2"><button class="mbtn" data-act="mrest" data-v="-15">−15 s</button><button class="mbtn" data-act="mrest" data-v="15">+15 s</button></div></div>
+      <div class="mnext"><span class="muted small">A seguir</span><b>${esc(ne.nome)}, série ${nk + 1} de ${nr.series.length}</b><span class="muted">${ehTempo(ne) ? esc(ne.reps) : (nkg ? esc(nkg) + ' kg × ' : '') + esc(nr.series[nk].reps || numReps(ne.reps)) + (ehTempo(ne) ? '' : ' reps')}</span></div>
+      <button class="mbig chalk" data-act="mpular">Pular descanso</button></div>`;
+    return h;
+  }
+
+  // série
+  const lastTxt = last ? last.filter(x => x.kg || x.reps).map(x => (x.kg ? x.kg + ' × ' : '') + (x.reps || '–')).join(', ') : '';
+  h += `<div class="mhead"><span class="muted">Exercício ${idx + 1} de ${t.itens.length}</span><h1 class="mname">${esc(e.nome)}</h1>${lastTxt ? `<span class="muted small">Última vez: ${esc(lastTxt)}</span>` : ''}${e.obs ? `<span class="mobs">${esc(e.obs)}</span>` : ''}</div>`;
+  if (sg && !tempo) h += `<div class="msug ${sg.tipo}">${sg.tipo === 'sobe' ? '▲' : '='} <span>${esc(sg.msg)}</span></div>`;
+  h += '<div class="mpills">' + r.series.map((x, j) => `<span class="${x.ok ? 'ok' : j === k ? 'cur' : ''}">${x.ok ? (j + 1) + ' ✓' : j === k ? 'Série ' + (j + 1) : j + 1}</span>`).join('') + '</div>';
+  h += '<div class="mpanel">';
+  if (!tempo) h += `<div class="mstep big"><button class="mpm" data-act="mkg" data-v="-1" aria-label="Diminuir carga">−</button><button class="mval" data-act="mkgedit" aria-label="Digitar carga"><b>${esc(s.kg || '0')}</b><span>kg</span></button><button class="mpm" data-act="mkg" data-v="1" aria-label="Aumentar carga">+</button></div><div class="mdiv"></div>`;
+  h += `<div class="mstep"><button class="mpm" data-act="mrep" data-v="-1" aria-label="Menos">−</button><button class="mval" data-act="mrepedit" aria-label="Digitar repetições"><b>${esc(s.reps || '0')}</b><span>${tempo ? 'segundos' : 'reps'}</span></button><button class="mpm" data-act="mrep" data-v="1" aria-label="Mais">+</button></div></div>`;
+  h += `<div class="mgrow"></div><button class="mbig" data-act="mfeita">${CHECK}<span>Série feita</span></button>
+    <div class="mlinks"><button class="mlink" data-act="mskip">Pular exercício</button><button class="mlink" data-act="mlista" data-ex="${e.id}">Ver lista do treino</button></div></div>`;
+  return h;
+}
+function tickModo(){
+  clearInterval(modoTick);
+  if (!modo) return;
+  modoTick = setInterval(() => {
+    if (!modo){ clearInterval(modoTick); return; }
+    const L = dia(cur), md = $('#mdur');
+    if (md && L.inicio) md.textContent = fmtDur((L.fim || Date.now()) - L.inicio);
+    if (modo.rest){
+      const rest = Math.max(0, Math.ceil((modo.rest.fim - Date.now()) / 1000));
+      const v = $('#mrv'), rf = $('#mrf');
+      if (v) v.textContent = Math.floor(rest / 60) + ':' + pad2(rest % 60);
+      if (rf) rf.setAttribute('stroke-dashoffset', (691.2 * (1 - rest / modo.rest.total)).toFixed(1));
+      if (rest <= 0){ modo.rest = null; bip(); render(); }
+    }
+  }, 250);
+}
+function concluirSerieModo(){
+  const L = dia(cur), t = treinoDo(cur), e = t.itens.find(x => x.id === modo.ex), r = getEx(L, e), k = serieAtual(r), s = r.series[k];
+  const mxAntes = maxOk(r), prev = bestKg(e.nome, cur);
+  s.ok = true; if (!s.reps) s.reps = numReps(e.reps); r.nome = e.nome;
+  if (!L.inicio){ L.inicio = Date.now(); delete L.fim; }
+  const v = num(s.kg), pr = v != null && prev != null && v > prev && (mxAntes == null || v > mxAntes);
+  touch(cur);
+  const det = (ehTempo(e) ? s.reps + ' s' : (s.kg ? s.kg + ' kg × ' : '') + s.reps) + (pr ? ', novo recorde' : '');
+  const feita = { titulo: 'Série ' + (k + 1) + ' feita', det, pr };
+  if (r.series.every(x => x.ok)){
+    const prox = proxExercicio(L, t, e.id);
+    if (!prox){ modo.fimTreino = true; modo.rest = null; bip(); render(); return; }
+    modo.ex = prox.id; feita.titulo = e.nome + ' concluído';
+  }
+  const total = (P().descanso || DESCANSO_PADRAO);
+  modo.rest = { fim: Date.now() + total * 1000, total, feita };
+  render();
+}
+function passoKg(v){ return v < 20 ? 1 : 2.5; }
+// carga sugerida pra série k: a da série anterior de hoje > sugestão > a da última vez
+function kgPadrao(e, r, k){
+  for (let j = k - 1; j >= 0; j--) if (r.series[j].kg) return r.series[j].kg;
+  const sg = sugestao(e, cur); if (sg) return String(sg.kg).replace('.', ',');
+  const last = lastSets(e, cur); return last && last[k] && last[k].kg ? last[k].kg : '';
+}
+
 /* ---------- render ---------- */
 function render(){
   document.querySelectorAll('.tabbtn').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  if (modo){ $('#tabbar').hidden = true; document.body.classList.add('em-modo'); VIEW.innerHTML = renderModo(); tickModo(); return; }
+  document.body.classList.remove('em-modo'); if (user) $('#tabbar').hidden = false;
   if (tab === 'hoje') renderHoje();
   else if (tab === 'agenda') renderAgenda();
   else if (tab === 'plano') renderPlano();
@@ -1009,6 +1147,28 @@ VIEW.addEventListener('click', async e => {
     case 'goex': { openEx[exId] = true; render(); const el = document.querySelector('details.ex[data-ex="' + exId + '"]'); if (el) el.scrollIntoView({ behavior:'smooth', block:'start' }); return; }
     case 'tabag': tab = 'agenda'; render(); window.scrollTo(0,0); return;
     case 'tabprog': tab = 'prog'; render(); window.scrollTo(0,0); return;
+    case 'modo': abrirModo(exId); return;
+    case 'msair': fecharModo(); return;
+    case 'mlista': { const id2 = exId; modo = null; clearInterval(modoTick); manterTelaAcesa(false); openEx[id2] = true; tab = 'hoje'; render(); const el = document.querySelector('details.ex[data-ex="' + id2 + '"]'); if (el) el.scrollIntoView({ block:'start' }); return; }
+    case 'mfinal': { const LL = dia(cur); if (LL.inicio && !LL.fim){ LL.fim = Date.now(); touch(cur); } modo = null; clearInterval(modoTick); manterTelaAcesa(false); tab = 'hoje'; render(); window.scrollTo(0,0); return; }
+    case 'mfeita': concluirSerieModo(); return;
+    case 'mpular': if (modo){ modo.rest = null; render(); } return;
+    case 'mrest': if (modo && modo.rest){ const d = parseInt(b.dataset.v); modo.rest.fim += d * 1000; modo.rest.total = Math.max(15, modo.rest.total + d); P().descanso = Math.max(15, Math.min(600, (P().descanso || DESCANSO_PADRAO) + d)); save('plano'); render(); } return;
+    case 'mskip': { const LL = dia(cur), tt = treinoDo(cur), nx = proxExercicio(LL, tt, modo.ex); if (nx) modo.ex = nx.id; render(); return; }
+    case 'mkg': case 'mrep': {
+      const LL = dia(cur), tt = treinoDo(cur), ee = tt.itens.find(x => x.id === modo.ex), rr = getEx(LL, ee), ss = rr.series[serieAtual(rr)];
+      const d = parseInt(b.dataset.v);
+      if (a === 'mkg'){ const v = num(ss.kg) || 0; const nv = Math.max(0, Math.round((v + d * passoKg(v)) * 10) / 10); ss.kg = String(nv).replace('.', ','); }
+      else { const v = parseInt(ss.reps) || 0; ss.reps = String(Math.max(0, v + (ehTempo(ee) ? d * 5 : d))); }
+      rr.nome = ee.nome; touch(cur); render(); return;
+    }
+    case 'mkgedit': case 'mrepedit': {
+      const LL = dia(cur), tt = treinoDo(cur), ee = tt.itens.find(x => x.id === modo.ex), rr = getEx(LL, ee), ss = rr.series[serieAtual(rr)];
+      const campo = a === 'mkgedit' ? 'kg' : 'reps';
+      const v = prompt(campo === 'kg' ? 'Carga (kg)' : (ehTempo(ee) ? 'Tempo (segundos)' : 'Repetições'), ss[campo] || '');
+      if (v == null) return; const n = num(v); if (n == null) return;
+      ss[campo] = campo === 'kg' ? String(n).replace('.', ',') : String(Math.round(n)); rr.nome = ee.nome; touch(cur); render(); return;
+    }
     case 'tpick': pickOpen = !pickOpen; keepScroll(render); return;
     case 'tclose': pickOpen = false; keepScroll(render); return;
     case 'tset': { const k = parseInt(id); if (k === idxOf(parse(cur))) delete L.treinoDia; else L.treinoDia = k; pickOpen = false; touch(cur); render(); window.scrollTo(0,0); return; }
@@ -1149,6 +1309,7 @@ VIEW.addEventListener('change', e => {
 });
 
 window.addEventListener('pagehide', flush);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && modo){ manterTelaAcesa(true); if (modo.rest && Date.now() >= modo.rest.fim){ modo.rest = null; render(); } } });
 // virada do dia: se estava vendo "hoje" e a data mudou, pula pro novo dia sozinho
 let diaAtual = hoje();
 function checaVirada(){
