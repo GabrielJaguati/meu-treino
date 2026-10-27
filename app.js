@@ -211,6 +211,9 @@ async function start(){
     save('agenda');
   }
   cache();
+  if (!S.lembretes){ S.lembretes = lembretesPadrao(); save('lembretes'); }
+  checkPush().then(() => { if (tab === 'saude') keepScroll(render); });
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   $('#tabbar').hidden = false;
   render();
 }
@@ -382,6 +385,174 @@ function jogoHtml(L, a){
     <p class="fl">Dor da pubalgia depois (0 a 10)</p><div class="scale s11">${Array.from({length:11},(_,n) => `<button class="chip dor${n>=7?' hi':n>=4?' md':''} ${j.dor===n?'on':''}" data-act="jdor" data-id="${id}" data-v="${n}">${n}</button>`).join('')}</div></div>`;
 }
 
+/* ---------- sugestão de carga (dupla progressão) ---------- */
+function topReps(reps){
+  const r = String(reps || '');
+  const m = r.match(/(\d+)\s*(?:-|–|a)\s*(\d+)/); if (m) return +m[2];
+  const n = r.match(/\d+/); return n ? +n[0] : null;
+}
+function sugestao(e, date){
+  if (/\d+\s*(s|seg|min)\b/i.test(String(e.reps || ''))) return null;
+  const last = lastSets(e, date); if (!last) return null;
+  const ok = last.filter(s => s.ok && num(s.kg) != null);
+  if (!ok.length) return null;
+  const kg = Math.max(...ok.map(s => num(s.kg)));
+  const top = topReps(e.reps); if (!top) return null;
+  const alvo = parseInt(e.series) || ok.length;
+  const bateu = ok.length >= alvo && ok.every(s => (num(s.reps) || 0) >= top);
+  const step = kg < 20 ? 2 : kg < 40 ? 2.5 : 5;
+  if (bateu) return { kg: kg + step, tipo:'sobe', msg:`Você fez todas as séries com ${top}+ reps em ${fmtN(kg)} kg. Suba pra ${fmtN(kg + step)} kg.` };
+  return { kg, tipo:'mantem', msg:`Mantenha ${fmtN(kg)} kg e tente chegar a ${top} reps em todas as séries.` };
+}
+
+/* ---------- mapa muscular ---------- */
+const GRUPOS = [
+  ['peito','Peito'],['ombro','Ombros'],['costas','Costas'],['biceps','Bíceps'],['triceps','Tríceps'],['abdomen','Abdômen'],
+  ['quad','Quadríceps'],['posterior','Posterior de coxa'],['gluteo','Glúteo'],['adutor','Adutores'],['panturrilha','Panturrilha']
+];
+const semAcento = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const REGRAS = [
+  [/posterior de ombro|crucifixo inverso|face pull|voador inverso/, ['ombro']],
+  [/leg ?press|agachamento|hack|afundo|passada|bulgaro/, ['quad','gluteo']],
+  [/extensora/, ['quad']],
+  [/flexora|stiff|nordico|terra romeno/, ['posterior']],
+  [/abdutora|elevacao pelvica|ponte|hip thrust|gluteo|coice/, ['gluteo']],
+  [/adutora/, ['adutor']],
+  [/panturrilha|gemeos/, ['panturrilha']],
+  [/prancha|abdominal|abdomen|crunch/, ['abdomen']],
+  [/supino|fly|crucifixo|peck|crossover|flexao de braco/, ['peito']],
+  [/elevacao lateral|elevacao frontal|desenvolvimento|ombro/, ['ombro']],
+  [/remada|puxada|pulldown|barra fixa|serrote|costas/, ['costas']],
+  [/biceps|rosca/, ['biceps']],
+  [/triceps|mergulho|frances/, ['triceps']],
+  [/futsal|futebol|corrida|bike|bicicleta/, ['quad','posterior','panturrilha','adutor']]
+];
+function musculosDe(nome){ const n = semAcento(nome); for (const [re, g] of REGRAS) if (re.test(n)) return g; return []; }
+function estadoMusculos(){
+  const H = hoje(), sem = addDays(H, -6), info = {};
+  GRUPOS.forEach(([id]) => { info[id] = { ultimo:null, series:0 }; });
+  Object.keys(S).filter(k => k.startsWith('dia:') && k.slice(4) <= H).forEach(k => {
+    const ds = k.slice(4), L = S[k];
+    const marca = (gs, n) => gs.forEach(g => { const x = info[g]; if (!x) return; if (!x.ultimo || ds > x.ultimo) x.ultimo = ds; if (ds >= sem) x.series += n; });
+    Object.values(L.treino || {}).forEach(r => { const n = (r.series || []).filter(s => s.ok).length; if (n) marca(musculosDe(r.nome), n); });
+    Object.keys(L.ativ || {}).forEach(a => { if (L.ativ[a]) marca(musculosDe(a), 0); });
+  });
+  GRUPOS.forEach(([id]) => {
+    const x = info[id];
+    x.dias = x.ultimo ? Math.round((parse(H) - parse(x.ultimo)) / 864e5) : null;
+    x.st = x.dias == null || x.dias >= 7 ? 'parado' : x.dias <= 1 ? 'rec' : x.dias === 2 ? 'quase' : 'pronto';
+  });
+  return info;
+}
+function corSt(st){ return { rec:'var(--accent)', quase:'var(--warn)', pronto:'var(--ok)', parado:'#2A2A30' }[st]; }
+function mapaHtml(){
+  const M = estadoMusculos(), c = id => corSt(M[id].st), N = '#1C1C20';
+  const frente = `<svg viewBox="0 0 100 190" class="body" role="img" aria-label="Músculos, vista de frente">
+    <circle cx="50" cy="13" r="9" fill="${N}"/><rect x="45" y="21" width="10" height="8" fill="${N}"/>
+    <ellipse cx="31" cy="37" rx="8" ry="7" fill="${c('ombro')}"/><ellipse cx="69" cy="37" rx="8" ry="7" fill="${c('ombro')}"/>
+    <rect x="34" y="32" width="15.5" height="17" rx="5" fill="${c('peito')}"/><rect x="50.5" y="32" width="15.5" height="17" rx="5" fill="${c('peito')}"/>
+    <rect x="20" y="45" width="9" height="22" rx="4.5" fill="${c('biceps')}"/><rect x="71" y="45" width="9" height="22" rx="4.5" fill="${c('biceps')}"/>
+    <rect x="17" y="69" width="8" height="24" rx="4" fill="${N}"/><rect x="75" y="69" width="8" height="24" rx="4" fill="${N}"/>
+    <rect x="38" y="51" width="24" height="31" rx="6" fill="${c('abdomen')}"/>
+    <path d="M36 84h28l2 8H34z" fill="${N}"/>
+    <rect x="34" y="94" width="13" height="44" rx="6.5" fill="${c('quad')}"/><rect x="53" y="94" width="13" height="44" rx="6.5" fill="${c('quad')}"/>
+    <rect x="47.5" y="95" width="5" height="26" rx="2.5" fill="${c('adutor')}"/>
+    <rect x="36" y="142" width="10" height="40" rx="5" fill="${N}"/><rect x="54" y="142" width="10" height="40" rx="5" fill="${N}"/>
+  </svg>`;
+  const costas = `<svg viewBox="0 0 100 190" class="body" role="img" aria-label="Músculos, vista de costas">
+    <circle cx="50" cy="13" r="9" fill="${N}"/><rect x="45" y="21" width="10" height="8" fill="${N}"/>
+    <ellipse cx="31" cy="37" rx="8" ry="7" fill="${c('ombro')}"/><ellipse cx="69" cy="37" rx="8" ry="7" fill="${c('ombro')}"/>
+    <path d="M36 31h28l-3 50H39z" fill="${c('costas')}"/>
+    <rect x="20" y="45" width="9" height="22" rx="4.5" fill="${c('triceps')}"/><rect x="71" y="45" width="9" height="22" rx="4.5" fill="${c('triceps')}"/>
+    <rect x="17" y="69" width="8" height="24" rx="4" fill="${N}"/><rect x="75" y="69" width="8" height="24" rx="4" fill="${N}"/>
+    <ellipse cx="42.5" cy="93" rx="8.5" ry="9" fill="${c('gluteo')}"/><ellipse cx="57.5" cy="93" rx="8.5" ry="9" fill="${c('gluteo')}"/>
+    <rect x="34" y="104" width="13" height="34" rx="6.5" fill="${c('posterior')}"/><rect x="53" y="104" width="13" height="34" rx="6.5" fill="${c('posterior')}"/>
+    <ellipse cx="41" cy="155" rx="6" ry="13" fill="${c('panturrilha')}"/><ellipse cx="59" cy="155" rx="6" ry="13" fill="${c('panturrilha')}"/>
+    <rect x="37" y="170" width="8" height="12" rx="4" fill="${N}"/><rect x="55" y="170" width="8" height="12" rx="4" fill="${N}"/>
+  </svg>`;
+  const lista = GRUPOS.map(([id, nome]) => {
+    const x = M[id];
+    const quando = x.dias == null ? 'sem registro' : x.dias === 0 ? 'hoje' : x.dias === 1 ? 'ontem' : 'há ' + x.dias + ' dias';
+    return `<div class="mg"><i style="background:${corSt(x.st)}"></i><span class="lm"><b>${nome}</b><span class="rd">${quando}${x.series ? ' · ' + x.series + ' séries na semana' : ''}</span></span></div>`;
+  }).join('');
+  return `<div class="bodies"><div><span class="lbl">FRENTE</span>${frente}</div><div><span class="lbl">COSTAS</span>${costas}</div></div>
+    <div class="legend2"><span><i style="background:var(--accent)"></i>Recuperando</span><span><i style="background:var(--warn)"></i>Quase</span><span><i style="background:var(--ok)"></i>Pronto</span><span><i style="background:#2A2A30"></i>Parado 7+ dias</span></div>
+    <div class="mgrid">${lista}</div>`;
+}
+
+/* ---------- notificações ---------- */
+let pushOn = false;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const standalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const b64ToU8 = s => { const p = '='.repeat((4 - s.length % 4) % 4); const b = atob((s + p).replace(/-/g,'+').replace(/_/g,'/')); return Uint8Array.from(b, ch => ch.charCodeAt(0)); };
+async function checkPush(){
+  try {
+    if (!('serviceWorker' in navigator) || !('Notification' in window)) { pushOn = false; return; }
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = reg && reg.pushManager && await reg.pushManager.getSubscription();
+    pushOn = !!sub && Notification.permission === 'granted';
+  } catch(e){ pushOn = false; }
+}
+async function ativarPush(){
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)){
+    alert(isIOS && !standalone ? 'No iPhone, abra o Meu Treino pelo ícone da tela de início (não pelo Safari) e tente de novo.' : 'Este navegador não suporta notificações.');
+    return;
+  }
+  if (!CFG.VAPID_PUBLIC || /COLE_AQUI/.test(CFG.VAPID_PUBLIC)){ alert('Falta a chave VAPID_PUBLIC no config.js (veja o guia de notificações).'); return; }
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted'){ alert('Permissão negada. No iPhone: Ajustes › Notificações › Meu Treino.'); return; }
+  try {
+    const reg = await navigator.serviceWorker.register('sw.js');
+    await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:b64ToU8(CFG.VAPID_PUBLIC) });
+    const j = sub.toJSON();
+    const { error } = await sb.from('push_subs').upsert({ endpoint:j.endpoint, user_id:user.id, sub:j }, { onConflict:'endpoint' });
+    if (error) throw error;
+    pushOn = true; toast('🔔 Notificações ativadas'); keepScroll(render);
+  } catch(e){ alert('Não consegui ativar: ' + (e.message || e)); }
+}
+async function desativarPush(){
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = reg && await reg.pushManager.getSubscription();
+    if (sub){ await sb.from('push_subs').delete().eq('endpoint', sub.endpoint); await sub.unsubscribe(); }
+  } catch(e){}
+  pushOn = false; toast('Notificações desativadas neste aparelho'); keepScroll(render);
+}
+async function testePush(){
+  try {
+    const { data } = await sb.auth.getSession();
+    const r = await fetch(CFG.SUPABASE_URL + '/functions/v1/lembretes', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + data.session.access_token, apikey:CFG.SUPABASE_ANON_KEY }, body:JSON.stringify({ teste:true }) });
+    toast(r.ok ? '📨 Teste enviado. Deve chegar em segundos' : 'Falhou (' + r.status + '). Confira a função no Supabase');
+  } catch(e){ toast('Falhou: ' + (e.message || e)); }
+}
+function lembretesPadrao(){
+  const L = { treino:'18:00', aguaCada:2, aguaIni:'09:00', aguaFim:'21:00', agendaMin:60, supl:{} };
+  const hora = n => { n = semAcento(n); if (/acnever/.test(n)) return '12:30'; if (/ioimbina/.test(n)) return '17:30'; if (/testosterona/.test(n)) return ''; return '07:30'; };
+  (P().suplementos || []).forEach(s => { const h = hora(s.nome); if (h) L.supl[s.id] = h; });
+  return L;
+}
+function notifHtml(){
+  const L = S.lembretes || {};
+  let h = '';
+  if (pushOn){
+    h += '<p class="okline">🔔 Ativadas neste aparelho</p><div class="tbtns"><button class="btn" data-act="pushtest">Enviar teste</button><button class="btn" data-act="pushoff">Desativar</button></div>';
+  } else {
+    if (isIOS && !standalone) h += '<p class="tip">No iPhone, as notificações só funcionam com o app aberto pelo <b>ícone da tela de início</b> (iOS 16.4 ou mais novo).</p>';
+    h += '<button class="btn primary" data-act="pushon">Ativar notificações</button>';
+  }
+  const opt = (v, cur, txt) => `<option value="${v}" ${String(cur) === String(v) ? 'selected' : ''}>${txt}</option>`;
+  h += `<div class="fields flat" style="margin-top:14px">
+    <label class="full">Lembrete de treino<input type="time" data-lf="treino" value="${esc(L.treino || '')}"></label>
+    <label>Água: lembrar a cada<select data-lf="aguaCada">${opt(0, L.aguaCada, 'Desligado')}${opt(1, L.aguaCada, '1 hora')}${opt(2, L.aguaCada, '2 horas')}${opt(3, L.aguaCada, '3 horas')}</select></label>
+    <label>Compromissos<select data-lf="agendaMin">${opt(0, L.agendaMin, 'Desligado')}${opt(30, L.agendaMin, '30 min antes')}${opt(60, L.agendaMin, '1 hora antes')}${opt(120, L.agendaMin, '2 horas antes')}</select></label>
+    <label>Água: das<input type="time" data-lf="aguaIni" value="${esc(L.aguaIni || '09:00')}"></label>
+    <label>até<input type="time" data-lf="aguaFim" value="${esc(L.aguaFim || '21:00')}"></label></div>
+    <p class="tip" style="margin-top:12px">O horário de cada suplemento fica em <b>Plano › Suplementos › Lembrar às</b>. O lembrete de água só vem se você ainda não bateu a meta, e o de suplemento só se ainda não marcou.</p>`;
+  return h;
+}
+
 function renderHoje(){
   const d = parse(cur), i = idxOf(d), isToday = cur === hoje();
   const L = dia(cur), ti = tIdx(cur), trocado = ti !== i;
@@ -510,9 +681,11 @@ function renderHoje(){
     const lastTxt = last ? last.filter(s => s.kg || s.reps).map(s => (s.kg||'–') + '×' + (s.reps||'–')).join(' · ') : '';
     b += `<details class="ex ${done?'done':''}" data-ex="${e.id}" ${openEx[e.id]?'open':''}><summary><span class="dot"></span><span class="exm"><span class="rn">${esc(e.nome)}${isPR ? ' <span class="prb">🏆 recorde</span>' : ''}</span><span class="rd">${esc(e.series)}×${esc(e.reps)}${e.obs?' · '+esc(e.obs):''}</span></span><span class="cnt">${nOk}/${r.series.length}</span></summary><div class="sets">`;
     if (lastTxt) b += `<p class="cap">Última vez (kg×reps): ${esc(lastTxt)}</p>`;
+    const sg = sugestao(e, cur);
+    if (sg && !done) b += `<div class="sug ${sg.tipo}"><span class="lm"><b>${sg.tipo === 'sobe' ? '▲ SUBIR CARGA' : '= MANTER CARGA'}</b><span>${esc(sg.msg)}</span></span><button class="sugb" data-act="usasug" data-ex="${e.id}" data-v="${sg.kg}">Usar ${fmtN(sg.kg)} kg</button></div>`;
     b += '<div class="sh"><span>#</span><span>kg</span><span>reps</span><span></span><span></span></div>';
     r.series.forEach((s,k) => {
-      const ph = last && last[k] ? last[k].kg : '';
+      const ph = sg ? String(sg.kg).replace('.', ',') : last && last[k] ? last[k].kg : '';
       b += `<div class="sr ${s.ok?'done':''}"><span class="sn">${k+1}</span>
         <input inputmode="decimal" aria-label="Carga série ${k+1}" data-f="kg" data-ex="${e.id}" data-i="${k}" value="${esc(s.kg)}" placeholder="${esc(ph)}">
         <input inputmode="numeric" aria-label="Repetições série ${k+1}" data-f="reps" data-ex="${e.id}" data-i="${k}" value="${esc(s.reps)}" placeholder="${esc(numReps(e.reps))}">
@@ -576,6 +749,7 @@ function renderPlano(){
     P().suplementos.forEach((s,k) => {
       h += `<div class="pe"><input class="pen" aria-label="Nome" data-pf="snome" data-i="${k}" value="${esc(s.nome)}">
         <div class="pe2" style="grid-template-columns:1fr 1fr"><label>Dose<input data-pf="sdose" data-i="${k}" value="${esc(s.dose||'')}" placeholder="Ex.: 1 cápsula"></label><label>Quando<input data-pf="shora" data-i="${k}" value="${esc(s.hora||'')}" placeholder="Ex.: no café"></label></div>
+        <div class="pe2" style="grid-template-columns:1fr"><label>Lembrar às (notificação)<input type="time" data-pf="slemb" data-i="${k}" value="${esc(((S.lembretes||{}).supl||{})[s.id] || '')}"></label></div>
         <p class="fl" style="margin:10px 0 0">Dias</p><div class="chips sm" style="margin-top:4px">${DIAS.map((n,d) => `<button class="chip ${(s.dias||[]).includes(d)?'on':''}" data-act="sdia" data-i="${k}" data-id="${d}">${n}</button>`).join('')}</div>
         <div class="pe3"><button class="mini danger" data-act="sdel" data-i="${k}">Remover</button></div></div>`;
     });
@@ -598,6 +772,8 @@ function renderProg(){
   h += chart([{ pts: pesos.map(m => ({ l:fmtD(m.data), v:m.peso })) }]);
   const cint = M.filter(m => m.cintura != null);
   if (cint.length > 1) h += '<p class="cap" style="margin-top:14px">Cintura (cm)</p>' + chart([{ pts: cint.map(m => ({ l:fmtD(m.data), v:m.cintura })), color:'var(--warn)' }]);
+
+  h += '<h2 class="mh">Músculos</h2>' + mapaHtml();
 
   h += `<h2 class="mh">Nova medida</h2><div class="fields">
     <label class="full">Data<input type="date" id="m_data" value="${hoje()}"></label>
@@ -681,6 +857,7 @@ function classPA(p){
 }
 function renderSaude(){
   let h = '<h1>Saúde</h1>';
+  h += '<h2 class="mh">Notificações</h2><div class="panel" style="padding-top:12px">' + notifHtml() + '</div>';
   h += `<h2 class="mh">Lesões e observações</h2><div class="f" style="margin-top:0"><textarea rows="5" data-f="snotas">${esc((S.saude||{}).notas||'')}</textarea></div>`;
   h += `<h2 class="mh">Conta</h2><p class="muted small">${esc(user && user.email || '')}</p><button class="btn danger" data-act="logout">Sair</button>`;
   VIEW.innerHTML = h;
@@ -752,6 +929,10 @@ VIEW.addEventListener('click', async e => {
     case 'dnext': cur = addDays(cur, 1); pickOpen = false; render(); return;
     case 'tstart': L.inicio = Date.now(); delete L.fim; touch(cur); keepScroll(render); return;
     case 'tfim': if (confirm('Finalizar o treino agora?')){ L.fim = Date.now(); touch(cur); render(); window.scrollTo(0,0); } return;
+    case 'usasug': { const v = b.dataset.v; const exo = treinoDo(cur).itens.find(x => x.id === exId); const r = getEx(L, exo); r.nome = exo.nome; r.series.forEach(s => { if (!s.ok) s.kg = String(v).replace('.', ','); }); touch(cur); keepScroll(render); toast('Carga ' + fmtN(+v) + ' kg nas séries'); return; }
+    case 'pushon': ativarPush(); return;
+    case 'pushoff': desativarPush(); return;
+    case 'pushtest': testePush(); return;
     case 'tedit': {
       const atualMin = L.inicio && L.fim ? Math.round((L.fim - L.inicio) / 60000) : '';
       const v = prompt('Quanto tempo durou o treino? (em minutos)', atualMin);
@@ -879,6 +1060,12 @@ VIEW.addEventListener('change', e => {
     else if (f === 'snotas'){ S.saude.notas = el.value; save('saude'); }
     return;
   }
+  if (el.dataset.lf){
+    S.lembretes = S.lembretes || lembretesPadrao();
+    const k = el.dataset.lf; S.lembretes[k] = (k === 'aguaCada' || k === 'agendaMin') ? (parseInt(el.value) || 0) : el.value;
+    save('lembretes'); return;
+    return;
+  }
   if (!pf) return;
   const i = parseInt(el.dataset.i), v = el.value, t = P().treinos[planDay];
   switch (pf){
@@ -895,6 +1082,7 @@ VIEW.addEventListener('change', e => {
     case 'mitens': P().refeicoes[i].itens = v.split('\n').map(s => s.trim()).filter(Boolean); break;
     case 'agua': P().metaAgua = parseInt(v) || 3500; break;
     case 'snome': P().suplementos[i].nome = v.trim(); break;
+    case 'slemb': { S.lembretes = S.lembretes || lembretesPadrao(); S.lembretes.supl = S.lembretes.supl || {}; if (v) S.lembretes.supl[P().suplementos[i].id] = v; else delete S.lembretes.supl[P().suplementos[i].id]; save('lembretes'); return; }
     case 'sdose': P().suplementos[i].dose = v.trim(); break;
     case 'shora': P().suplementos[i].hora = v.trim(); break;
   }

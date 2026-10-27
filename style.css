@@ -298,3 +298,30 @@ details.ex.done .dot,details.ex[open] .dot{background:var(--accent)}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 .tbtns{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .tile-lnk{background:none;border:0;padding:6px 0 0;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.1em;text-decoration:underline;text-underline-offset:3px}
+
+/* sugestão de carga */
+.sug{display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:var(--field)}
+.sug.sobe{border-color:rgba(61,214,140,.45);background:rgba(61,214,140,.08)}
+.sug .lm{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.sug b{font-size:11px;font-weight:800;letter-spacing:.1em}
+.sug.sobe b{color:var(--ok)}
+.sug span span{font-size:12.5px;color:var(--muted)}
+.sugb{flex:none;border:0;border-radius:10px;padding:9px 10px;font-size:12px;font-weight:800;background:var(--accent);color:#fff}
+.sug.sobe .sugb{background:var(--ok);color:#06210f}
+
+/* mapa muscular */
+.bodies{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px;border-radius:var(--r);background:var(--surface);border:1px solid var(--line)}
+.bodies>div{display:flex;flex-direction:column;align-items:center;gap:6px}
+.body{width:100%;max-width:150px;height:auto}
+.legend2{display:flex;flex-wrap:wrap;gap:6px 14px;margin:10px 2px 0;font-size:11px;font-weight:700;color:var(--muted)}
+.legend2 i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}
+.mg{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:var(--surface);border:1px solid var(--line);min-width:0}
+.mg>i{flex:none;width:10px;height:10px;border-radius:50%}
+.mg .lm{display:flex;flex-direction:column;min-width:0}
+.mg b{font-size:13px;font-weight:800}
+.mg .rd{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* notificações */
+.okline{margin:0 0 4px;font-size:14px;font-weight:800;color:var(--ok)}
+.tbtns .btn{margin-top:8px}
