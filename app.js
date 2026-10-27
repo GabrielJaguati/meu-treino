@@ -144,7 +144,7 @@ function status(msg, isErr){
 /* ---------- autenticação ---------- */
 async function boot(){
   if (!CFG.SUPABASE_URL || /COLE_AQUI/.test(CFG.SUPABASE_URL) || !window.supabase){
-    VIEW.innerHTML = '<div class="login"><h1>Meu Treino</h1><p class="sub">Falta configurar o banco. Abra o arquivo <b>config.js</b> e cole a Project URL e a chave pública do Supabase (veja o LEIA-ME).</p></div>';
+    VIEW.innerHTML = '<div class="login"><div class="logo"><svg viewBox="0 0 24 24"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/></svg></div><h1>Meu Treino</h1><p class="sub">Falta configurar o banco. Abra o arquivo <b>config.js</b> e cole a Project URL e a chave pública do Supabase (veja o LEIA-ME).</p></div>';
     return;
   }
   sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, { auth:{ persistSession:true, autoRefreshToken:true } });
@@ -155,7 +155,7 @@ async function boot(){
 }
 function showLogin(){
   $('#tabbar').hidden = true;
-  VIEW.innerHTML = `<div class="login"><h1>Meu Treino</h1><p class="sub">Entre com seu e-mail e senha.</p>
+  VIEW.innerHTML = `<div class="login"><div class="logo"><svg viewBox="0 0 24 24"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/></svg></div><h1>Meu Treino</h1><p class="sub">Entre com seu e-mail e senha.</p>
     <form id="lf" novalidate>
       <div class="f"><label>E-mail<input type="email" id="le" autocomplete="username" required></label></div>
       <div class="f"><label>Senha<input type="password" id="lp" autocomplete="current-password" required></label></div>
@@ -189,7 +189,7 @@ async function start(){
   if (!S.exames){ S.exames = []; save('exames'); }
   if (!S.saude){ S.saude = { notas: SEED_NOTAS }; save('saude'); }
   if (!S.agenda){
-    const LOC = 'Phoenix · R. José de Alencar, 501 – Menino Deus';
+    const LOC = 'Phoenix · Menino Deus';
     const fisio = (data, hora, fim, prof) => ({ id:uid(), tipo:'fisio', titulo:'Fisio · ' + prof, data, hora, local:LOC, obs:'até ' + fim, semanal:false });
     S.agenda = [
       fisio('2026-10-27','07:15','08:00','Karine Santos'),
@@ -258,64 +258,78 @@ function lastSets(e, before){
 }
 
 /* ---------- HOJE ---------- */
+const IC = {
+  treino:'<svg viewBox="0 0 24 24"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/></svg>',
+  comida:'<svg viewBox="0 0 24 24"><path d="M6 3v7a2 2 0 0 0 4 0V3M8 3v18M17 3c-2 1.5-3 4-3 7v3h3M17 3v18"/></svg>',
+  supl:'<svg viewBox="0 0 24 24"><rect x="3" y="8.5" width="18" height="7" rx="3.5" transform="rotate(-45 12 12)"/><path d="M9.6 9.6l4.8 4.8"/></svg>',
+  agua:'<svg viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg>',
+  nota:'<svg viewBox="0 0 24 24"><path d="M5 4h10l4 4v12H5z"/><path d="M9 12h6M9 16h4"/></svg>',
+  agenda:'<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>'
+};
+const panel = (title, ico, body, extra) => `<section class="panel"><header class="ph"><span class="pi">${ico}</span><h2>${title}</h2>${extra||''}</header>${body}</section>`;
+function ring(pct){
+  const r = 34, c = 2 * Math.PI * r, off = c * (1 - pct / 100);
+  return `<div class="ringbox"><svg class="ring" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="${r}" class="rb"/><circle cx="42" cy="42" r="${r}" class="rf" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"/></svg><span class="rp">${pct}<small>%</small></span></div>`;
+}
 function renderHoje(){
   const d = parse(cur), i = idxOf(d), isToday = cur === hoje();
   const t = P().treinos[i] || { nome:'', itens:[], atividades:[] };
   const L = dia(cur);
   const sup = P().suplementos.filter(s => (s.dias||[]).includes(i));
-  let tot = 0, ok = 0;
-  t.itens.forEach(e => { tot++; const r = L.treino[e.id]; if (r && r.series.length && r.series.every(s => s.ok)) ok++; });
+  let tot = 0, ok = 0, exOk = 0, refOk = 0;
+  t.itens.forEach(e => { tot++; const r = L.treino[e.id]; if (r && r.series.length && r.series.every(s => s.ok)){ ok++; exOk++; } });
   if (t.cardio){ tot++; if (L.cardio) ok++; }
   (t.atividades||[]).forEach(a => { tot++; if (L.ativ[a]) ok++; });
-  P().refeicoes.forEach(m => { tot++; if (L.ref[m.id]) ok++; });
+  P().refeicoes.forEach(m => { tot++; if (L.ref[m.id]){ ok++; refOk++; } });
   sup.forEach(s => { tot++; if (L.supl[s.id]) ok++; });
   const pct = tot ? Math.round(ok / tot * 100) : 0;
+  const meta = P().metaAgua || 3500;
 
   let h = `<div class="dnav"><button class="wkb" data-act="dprev" aria-label="Dia anterior">${ICON.l}</button>
     <div class="dl"><strong>${DIAS_F[i]}${isToday?' · hoje':''}</strong><span>${fmtLong(d)}</span>${isToday?'':'<button class="linkbtn sm" data-act="dtoday">Voltar pra hoje</button>'}</div>
     <button class="wkb" data-act="dnext" aria-label="Próximo dia">${ICON.r}</button></div>`;
-  h += `<h1>${esc(t.nome || 'Descanso')}</h1>`;
-  h += `<div class="prog"><div class="bar"><i style="width:${pct}%"></i></div><p>${ok} de ${tot} itens do dia · ${pct}%</p></div>`;
+  h += `<section class="hero"><div class="hl"><span class="eyebrow">${isToday ? 'Treino de hoje' : 'Treino de ' + DIAS_F[i].toLowerCase()}</span><h1>${esc(t.nome || 'Descanso')}</h1></div>${ring(pct)}<div class="stats"><span><b>${exOk}/${t.itens.length}</b>exercícios</span><span><b>${fmtN((L.agua||0)/1000)} L</b>água</span><span><b>${refOk}/${P().refeicoes.length}</b>refeições</span></div></section>`;
 
   const evs = ocorrencias(cur, cur);
-  if (evs.length) h += '<h2 class="mh">Compromissos</h2>' + evs.map(o => evtHtml(o, false)).join('');
+  if (evs.length) h += panel('Compromissos', IC.agenda, evs.map(o => evtHtml(o, false)).join(''));
 
-  h += '<h2 class="mh">Treino</h2>';
-  if (P().obs && t.itens.length) h += `<p class="tip">${esc(P().obs)}</p>`;
-  if (!t.itens.length && !t.cardio && !(t.atividades||[]).length) h += '<p class="muted">Nada planejado pra hoje. Dá pra editar na aba Plano.</p>';
+  let b = '';
+  if (P().obs && t.itens.length) b += `<p class="tip">${esc(P().obs)}</p>`;
+  if (!t.itens.length && !t.cardio && !(t.atividades||[]).length) b += '<p class="muted">Nada planejado pra hoje. Dá pra editar na aba Plano.</p>';
   t.itens.forEach(e => {
     const r = getEx(L, e), last = lastSets(e, cur);
     const nOk = r.series.filter(s => s.ok).length, done = r.series.length && nOk === r.series.length;
     const lastTxt = last ? last.filter(s => s.kg || s.reps).map(s => (s.kg||'–') + '×' + (s.reps||'–')).join(' · ') : '';
-    h += `<details class="ex ${done?'done':''}" data-ex="${e.id}" ${openEx[e.id]?'open':''}><summary><span class="dot"></span><span class="exm"><span class="rn">${esc(e.nome)}</span><span class="rd">${esc(e.series)}×${esc(e.reps)}${e.obs?' · '+esc(e.obs):''}</span></span><span class="cnt">${nOk}/${r.series.length}</span></summary><div class="sets">`;
-    if (lastTxt) h += `<p class="cap">Última vez (kg×reps): ${esc(lastTxt)}</p>`;
-    h += '<div class="sh"><span>#</span><span>kg</span><span>reps</span><span></span><span></span></div>';
+    b += `<details class="ex ${done?'done':''}" data-ex="${e.id}" ${openEx[e.id]?'open':''}><summary><span class="dot"></span><span class="exm"><span class="rn">${esc(e.nome)}</span><span class="rd">${esc(e.series)}×${esc(e.reps)}${e.obs?' · '+esc(e.obs):''}</span></span><span class="cnt">${nOk}/${r.series.length}</span></summary><div class="sets">`;
+    if (lastTxt) b += `<p class="cap">Última vez (kg×reps): ${esc(lastTxt)}</p>`;
+    b += '<div class="sh"><span>#</span><span>kg</span><span>reps</span><span></span><span></span></div>';
     r.series.forEach((s,k) => {
       const ph = last && last[k] ? last[k].kg : '';
-      h += `<div class="sr ${s.ok?'done':''}"><span class="sn">${k+1}</span>
+      b += `<div class="sr ${s.ok?'done':''}"><span class="sn">${k+1}</span>
         <input inputmode="decimal" aria-label="Carga série ${k+1}" data-f="kg" data-ex="${e.id}" data-i="${k}" value="${esc(s.kg)}" placeholder="${esc(ph)}">
         <input inputmode="numeric" aria-label="Repetições série ${k+1}" data-f="reps" data-ex="${e.id}" data-i="${k}" value="${esc(s.reps)}" placeholder="${esc(numReps(e.reps))}">
         <button class="chk" data-act="setok" data-ex="${e.id}" data-i="${k}" aria-label="Concluir série ${k+1}"><span class="c">${CHECK}</span></button>
         <button class="rm" data-act="delset" data-ex="${e.id}" data-i="${k}" aria-label="Remover série">×</button></div>`;
     });
-    h += `<button class="add sm" data-act="addset" data-ex="${e.id}">+ série</button></div></details>`;
+    b += `<button class="add sm" data-act="addset" data-ex="${e.id}">+ série</button></div></details>`;
   });
-  if (t.cardio) h += checkRow('cardio', '', esc(t.cardio), !!L.cardio);
-  (t.atividades||[]).forEach(a => { h += checkRow('ativ', a, esc(a), !!L.ativ[a]); });
+  if (t.cardio) b += checkRow('cardio', '', esc(t.cardio), !!L.cardio);
+  (t.atividades||[]).forEach(a => { b += checkRow('ativ', a, esc(a), !!L.ativ[a]); });
+  h += panel('Treino', IC.treino, b, t.itens.length ? `<span class="pc">${exOk}/${t.itens.length}</span>` : '');
 
-  h += '<h2 class="mh">Alimentação</h2>';
-  P().refeicoes.forEach(m => { h += checkRow('ref', m.id, (m.hora ? esc(m.hora)+' · ' : '') + esc(m.nome), !!L.ref[m.id], esc((m.itens||[]).join(' · '))); });
+  b = P().refeicoes.map(m => checkRow('ref', m.id, (m.hora ? esc(m.hora)+' · ' : '') + esc(m.nome), !!L.ref[m.id], esc((m.itens||[]).join(' · ')))).join('');
+  h += panel('Alimentação', IC.comida, b, `<span class="pc">${refOk}/${P().refeicoes.length}</span>`);
 
-  h += '<h2 class="mh">Suplementos</h2>';
-  if (!sup.length) h += '<p class="muted">Nenhum pra hoje.</p>';
-  sup.forEach(s => { h += checkRow('supl', s.id, esc(s.nome) + (s.dose ? ' · ' + esc(s.dose) : ''), !!L.supl[s.id], esc(s.hora||'')); });
+  const supOk = sup.filter(s => L.supl[s.id]).length;
+  b = sup.length ? sup.map(s => checkRow('supl', s.id, esc(s.nome) + (s.dose ? ' · ' + esc(s.dose) : ''), !!L.supl[s.id], esc(s.hora||''))).join('') : '<p class="muted">Nenhum pra hoje.</p>';
+  h += panel('Suplementos', IC.supl, b, sup.length ? `<span class="pc">${supOk}/${sup.length}</span>` : '');
 
-  const meta = P().metaAgua || 3500;
-  h += `<h2 class="mh">Água</h2><div class="card"><span class="wn">${fmtN((L.agua||0)/1000)} L</span> <span class="wg">de ${fmtN(meta/1000)} L</span>
+  b = `<div class="water"><span class="wn">${fmtN((L.agua||0)/1000)}<small> L</small></span><span class="wg">meta ${fmtN(meta/1000)} L</span></div>
     <div class="prog"><div class="bar"><i style="width:${Math.min(100, Math.round((L.agua||0)/meta*100))}%"></i></div></div>
-    <div class="wq"><button data-act="agua" data-v="250">+250</button><button data-act="agua" data-v="500">+500</button><button data-act="agua" data-v="750">+750</button><button data-act="agua" data-v="-250">−250</button></div></div>`;
+    <div class="wq"><button data-act="agua" data-v="250">+250</button><button data-act="agua" data-v="500">+500</button><button data-act="agua" data-v="750">+750</button><button data-act="agua" data-v="-250">−250</button></div>`;
+  h += panel('Água', IC.agua, b);
 
-  h += `<h2 class="mh">Anotações do dia</h2><div class="f"><textarea rows="3" data-f="nota" placeholder="Dor na pubalgia, sono, disposição…">${esc(L.nota||'')}</textarea></div>`;
+  h += panel('Anotações do dia', IC.nota, `<div class="f" style="margin-top:0"><textarea rows="3" data-f="nota" placeholder="Dor na pubalgia, sono, disposição…">${esc(L.nota||'')}</textarea></div>`);
   VIEW.innerHTML = h;
 }
 
@@ -466,7 +480,7 @@ function evtHtml(o, rem){
   const e = o.e, d = parse(o.data);
   const quando = DIAS[idxOf(d)] + ' ' + fmtD(o.data) + (e.hora ? ' · ' + esc(e.hora) : '');
   const sub = [quando, esc(e.local||''), esc(e.obs||''), e.semanal ? 'toda semana' : ''].filter(Boolean).join(' · ');
-  return `<div class="evt"><span class="tag t-${e.tipo}">${TIPOS[e.tipo]||'Outro'}</span><span class="lm"><span class="rn">${esc(e.titulo || TIPOS[e.tipo])}</span><span class="rd">${sub}</span></span>${rem ? `<button class="rm" data-act="arem" data-id="${e.id}" aria-label="Apagar">×</button>` : ''}</div>`;
+  return `<div class="evt"><span class="lm"><span class="tag t-${e.tipo}">${TIPOS[e.tipo]||'Outro'}</span><span class="rn">${esc(e.titulo || TIPOS[e.tipo])}</span><span class="rd">${sub}</span></span>${rem ? `<button class="rm" data-act="arem" data-id="${e.id}" aria-label="Apagar">×</button>` : ''}</div>`;
 }
 function renderAgenda(){
   const h0 = hoje();
