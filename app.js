@@ -524,8 +524,12 @@ async function testePush(){
   try {
     const { data } = await sb.auth.getSession();
     const r = await fetch(CFG.SUPABASE_URL + '/functions/v1/lembretes', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + data.session.access_token, apikey:CFG.SUPABASE_ANON_KEY }, body:JSON.stringify({ teste:true }) });
-    toast(r.ok ? '📨 Teste enviado. Deve chegar em segundos' : 'Falhou (' + r.status + '). Confira a função no Supabase');
-  } catch(e){ toast('Falhou: ' + (e.message || e)); }
+    if (r.ok){ toast('📨 Teste enviado. Deve chegar em segundos'); return; }
+    let msg = ''; try { msg = (await r.json()).erro || ''; } catch(_){}
+    if (r.status === 404 && !msg) msg = 'Função "lembretes" não encontrada. Confira o nome no Supabase.';
+    if (r.status === 401 && !msg) msg = 'O Supabase barrou o pedido. Desligue "Verify JWT" na função.';
+    alert('Teste falhou (' + r.status + '): ' + (msg || 'confira a função no Supabase'));
+  } catch(e){ alert('Não consegui falar com a função. Confira: 1) nome "lembretes"; 2) "Verify JWT" desligado; 3) segredos do passo 4. (' + (e.message || e) + ')'); }
 }
 function lembretesPadrao(){
   const L = { treino:'18:00', aguaCada:2, aguaIni:'09:00', aguaFim:'21:00', agendaMin:60, supl:{} };
