@@ -881,7 +881,24 @@ VIEW.addEventListener('change', e => {
 });
 
 window.addEventListener('pagehide', flush);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); else if (user && tab === 'hoje' && !document.activeElement.matches('input,textarea')) render(); });
+// virada do dia: se estava vendo "hoje" e a data mudou, pula pro novo dia sozinho
+let diaAtual = hoje();
+function checaVirada(){
+  const h = hoje();
+  if (h === diaAtual) return false;
+  const estavaEmHoje = cur === diaAtual;
+  diaAtual = h;
+  if (estavaEmHoje){ cur = h; planDay = idxOf(new Date()); pickOpen = false; }
+  return estavaEmHoje;
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden'){ flush(); return; }
+  if (!user) return;
+  const virou = checaVirada();
+  if ((virou || tab === 'hoje') && !document.activeElement.matches('input,textarea')) render();
+});
+window.addEventListener('focus', () => { if (user && checaVirada() && tab === 'hoje' && !document.activeElement.matches('input,textarea')) render(); });
+setInterval(() => { if (user && checaVirada() && tab === 'hoje' && !document.activeElement.matches('input,textarea')) render(); }, 60000);
 window.addEventListener('online', flush);
 
 boot();
