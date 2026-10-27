@@ -83,6 +83,7 @@ let tab = 'hoje', cur = hoje(), planDay = idxOf(new Date()), planSeg = 'treino',
 const openEx = {};
 let pickOpen = false;
 let pendRender = false;
+let agendaForm = false;
 const barraAnt = {};
 const P = () => S.plano;
 
@@ -606,7 +607,7 @@ function renderHoje(){
   let h = `<header class="top"><div class="tl"><span class="dt">${dataTxt}${isToday ? '' : ' <button class="lnk" data-act="dtoday">voltar pra hoje</button>'}</span><span class="hi">${saud}, ${NOME}</span></div>${streak ? `<span class="streak" title="Dias seguidos com treino"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c2 3 5 5 5 9a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-8z"/></svg><b>${streak}</b> ${streak === 1 ? 'dia' : 'dias'}</span>` : ''}</header>`;
   h += `<nav class="week" aria-label="Dias da semana">${wk}</nav>`;
 
-  // ---- o boneco do treino: músculos do dia acendem conforme os exercícios ficam prontos ----
+  // ---- palco: músculos do dia acendem conforme os exercícios ficam prontos ----
   const nome = t.nome || 'Descanso';
   const alvo = {};
   t.itens.forEach(e => {
@@ -619,67 +620,60 @@ function renderHoje(){
   barraAnt[cur] = exOk;
   const pinta = id => {
     const x = alvo[id];
-    if (!x) return 'fill="#2B2B30"';
+    if (!x) return 'fill="#5B5A60"';
     const f = x.prog / x.tot;
-    return `fill="rgba(215,25,31,${(0.16 + 0.84 * f).toFixed(2)})" stroke="#FF6159" stroke-width="${f >= 1 ? 0 : 1.2}"`;
+    return `fill="rgba(255,59,48,${(0.2 + 0.68 * f).toFixed(2)})" stroke="#FF4A3F" stroke-width="1.6"`;
   };
-  const NAO_CORPO = /futsal|futebol|cardio|corrida|bike|esteira|descanso/i;
-  let figura = '';
+  let figura = '', pills = '';
   if (t.itens.length && Object.keys(alvo).length){
     const { frente, costas } = corpoSvgs(pinta, 'fig');
     const usaF = ['peito','ombro','biceps','abdomen','quad','adutor'].some(g => alvo[g]);
     const usaC = ['costas','ombro','triceps','gluteo','posterior','panturrilha'].some(g => alvo[g]);
-    const figs = (usaF ? frente : '') + (usaC ? costas : '');
-    const lista = Object.keys(alvo).sort((a, b) => alvo[b].tot - alvo[a].tot).map(g => {
-      const x = alvo[g], f = Math.round(x.prog / x.tot * 100);
-      return `<li><span class="gn">${NOMEG[g] || g}</span><span class="gb"><i style="width:${f}%"></i></span><span class="gc">${x.ok}/${x.tot}</span></li>`;
-    }).join('');
-    figura = `<div class="treinofig ${subiu ? 'pulse' : ''}"><div class="figs ${usaF && usaC ? 'two' : 'one'}">${figs}</div><ul class="glist" aria-label="Músculos do treino">${lista}</ul></div>`;
-  } else if (t.itens.length){
-    figura = `<div class="treinofig solo">${ICONE_TREINO.halter}</div>`;
+    figura = `<div class="figs ${subiu ? 'pulse' : ''}">${usaF ? frente : ''}${usaC ? costas : ''}</div>`;
+    const gs = Object.keys(alvo).sort((a, b) => alvo[b].tot - alvo[a].tot);
+    pills = '<div class="pills">' + gs.slice(0, 4).map(g => { const x = alvo[g]; return `<span class="pill"><span>${NOMEG[g] || g}</span><b class="${x.ok ? 'on' : ''}">${x.ok}/${x.tot}</b></span>`; }).join('') + (gs.length > 4 ? `<span class="pill more">+${gs.length - 4}</span>` : '') + '</div>';
   } else {
     const txt = [t.cardio, ...(t.atividades||[])].filter(Boolean).join(' ');
-    const ic = /futsal|futebol/i.test(txt) ? ICONE_TREINO.bola : t.cardio ? ICONE_TREINO.cardio : ICONE_TREINO.descanso;
-    figura = `<div class="treinofig solo">${ic}</div>`;
+    const ic = !t.itens.length ? (/futsal|futebol/i.test(txt) ? ICONE_TREINO.bola : t.cardio ? ICONE_TREINO.cardio : ICONE_TREINO.descanso) : ICONE_TREINO.halter;
+    figura = `<div class="figs solo">${ic}</div>`;
+    pills = `<p class="hsub">${esc(txt || (t.itens.length ? t.itens.length + ' exercícios' : 'Dia livre. Descanse ou faça um cardio leve.'))}</p>`;
   }
-  const fs = nome.length <= 8 ? 64 : nome.length <= 14 ? 50 : nome.length <= 20 ? 40 : 32;
-  let barraTxt;
-  if (!t.itens.length) barraTxt = `<p class="bsub">${esc([t.cardio, ...(t.atividades||[])].filter(Boolean).join(' e ') || 'Dia livre. Descanse ou faça um cardio leve.')}</p>`;
-  else barraTxt = `<div class="bfoot"><span><b>${exOk}</b> de ${t.itens.length} exercícios</span></div>`;
+  const fs = nome.length <= 10 ? 38 : nome.length <= 18 ? 34 : nome.length <= 26 ? 28 : 24;
 
-  // ---- faixa de números: tempo, volume, água ----
+  // ---- tempo e volume ----
   const durs = Object.keys(S).filter(k => k.startsWith('dia:') && k.slice(4) < cur && S[k].inicio && S[k].fim).map(k => S[k].fim - S[k].inicio).filter(v => v > 5*60000 && v < 4*3600000);
   const media = durs.length ? durs.reduce((a,b) => a + b, 0) / durs.length : null;
   let tVal = '0:00', tSub = media ? 'média ' + fmtDurTxt(media) : 'cronômetro', tAct = '';
-  if (L.inicio && !L.fim){ tVal = `<span id="tdur">${fmtDur(Date.now() - L.inicio)}</span>`; tSub = 'treinando'; tAct = '<button class="sbtn hot" data-act="tfim">Finalizar</button>'; }
-  else if (L.inicio && L.fim){ tVal = fmtDur(L.fim - L.inicio); tSub = 'finalizado'; tAct = '<button class="sbtn" data-act="tedit">Editar</button>'; }
-  else if (t.itens.length || t.cardio) tAct = '<button class="sbtn hot" data-act="tstart">Iniciar</button><button class="slnk" data-act="tedit">lançar à mão</button>';
+  if (L.inicio && !L.fim){ tVal = `<span id="tdur">${fmtDur(Date.now() - L.inicio)}</span>`; tSub = media ? 'média ' + fmtDurTxt(media) : 'treinando'; tAct = '<button class="tbtn2 hot" data-act="tfim">Finalizar</button>'; }
+  else if (L.inicio && L.fim){ tVal = fmtDur(L.fim - L.inicio); tSub = 'finalizado'; tAct = '<button class="tbtn2" data-act="tedit">Editar tempo</button>'; }
+  else if (t.itens.length || t.cardio) tAct = '<button class="tbtn2 hot" data-act="tstart">Iniciar</button><button class="slnk" data-act="tedit">lançar à mão</button>';
   const volHoje = volDia(L);
   const ant = sessaoAnterior(L, cur);
   const vDelta = ant && volHoje ? Math.round((volHoje - ant.vol) / ant.vol * 100) : null;
   const vSub = vDelta == null ? 'kg levantados' : (vDelta >= 0 ? '+' : '−') + Math.abs(vDelta) + '% vs ' + fmtD(ant.data);
-  const aguaPct = Math.min(100, Math.round((L.agua||0) / meta * 100));
-  const strip = `<section class="strip" aria-label="Resumo do dia">
-    <div class="sc"><span class="sl">Tempo${L.inicio && !L.fim ? ' <i class="live" aria-hidden="true"></i>' : ''}</span><span class="sv">${tVal}</span><span class="ss">${tSub}</span>${tAct}</div>
-    <div class="sc"><span class="sl">Volume</span><span class="sv" id="vvol">${Math.round(volHoje).toLocaleString('pt-BR')}</span><span class="ss ${vDelta != null ? (vDelta >= 0 ? 'up' : 'dn') : ''}">${vSub}</span></div>
-    <div class="sc"><span class="sl">Água</span><span class="sv">${fmtN((L.agua||0)/1000)}<small> L</small></span><span class="wbar" aria-hidden="true"><i style="width:${aguaPct}%"></i></span><span class="ss">meta ${fmtN(meta/1000)} L</span><div class="wbtn"><button class="sbtn blue" data-act="agua" data-v="250">+250</button><button class="sbtn" data-act="agua" data-v="-250" aria-label="Tirar 250 ml">−</button></div></div>
-  </section>`;
+  const vols = Object.keys(S).filter(k => k.startsWith('dia:') && k.slice(4) < cur).sort().map(k => volDia(S[k])).filter(v => v > 0).slice(-4).concat([volHoje]);
+  const vMax = Math.max(1, ...vols);
+  const bars = vols.map((v, k) => `<span style="height:${Math.max(10, Math.round(v / vMax * 100))}%" class="${k === vols.length - 1 ? 'cur' : ''}"></span>`).join('');
 
-  // ---- próximo passo ----
+  // ---- próximo exercício ----
   const atual = t.itens.findIndex(e => { const r = L.treino[e.id]; return !(r && r.series.length && r.series.every(s => s.ok)); });
   let next = '';
   if (t.itens.length && atual >= 0){
     const e = t.itens[atual], r = getEx(L, e), nOk = r.series.filter(s => s.ok).length, last = lastSets(e, cur), sg = sugestao(e, cur);
     const kg = (r.series.find(s => !s.ok && s.kg) || {}).kg || (sg ? fmtN(sg.kg) : '') || (last && last[nOk] && last[nOk].kg) || '';
-    next = `<button class="next" data-act="goex" data-ex="${e.id}"><span class="nx"><span class="nl">${nOk ? 'Continuar' : exOk ? 'Próximo exercício' : 'Comece por'}</span><span class="nn">${esc(e.nome)}</span><span class="nd">Série ${Math.min(nOk + 1, r.series.length)} de ${r.series.length}${kg ? ', ' + esc(kg) + ' kg' : ''}</span></span><span class="na" aria-hidden="true">${ICON.r}</span></button>`;
+    next = `<button class="tile wide next2" data-act="goex" data-ex="${e.id}"><span class="nnum">${pad2(atual + 1)}</span><span class="nx"><span class="nl">${nOk ? 'Continuar' : exOk ? 'Próximo exercício' : 'Comece por'}</span><span class="nn">${esc(e.nome)}</span><span class="nd">Série ${Math.min(nOk + 1, r.series.length)} de ${r.series.length}${kg ? ', ' + esc(kg) + ' kg' : ''}</span></span><span class="na" aria-hidden="true">${ICON.r}</span></button>`;
   } else if (t.itens.length && !L.fim){
-    next = `<button class="next done" data-act="tfim"><span class="nx"><span class="nl">Treino completo</span><span class="nn">Finalizar e ver o resumo</span></span><span class="na" aria-hidden="true">${ICON.r}</span></button>`;
+    next = `<button class="tile wide next2 done" data-act="tfim"><span class="nnum">✓</span><span class="nx"><span class="nl">Treino completo</span><span class="nn">Finalizar e ver o resumo</span></span><span class="na" aria-hidden="true">${ICON.r}</span></button>`;
   }
+
+  // ---- água ----
+  const aguaPct = Math.min(100, Math.round((L.agua||0) / meta * 100));
+  const agua = `<div class="tile agua2"><div class="tank"><span style="height:${aguaPct}%"></span></div><div class="wc"><span class="sl">Água</span><span class="sv sm">${fmtN((L.agua||0)/1000)} L</span><span class="ss">meta ${fmtN(meta/1000)} L</span><div class="wbtn"><button class="wb blue" data-act="agua" data-v="250">+250</button><button class="wb" data-act="agua" data-v="-250" aria-label="Tirar 250 ml">−</button></div></div></div>`;
 
   // ---- próximo compromisso ----
   const agora = new Date(), hhmm = pad2(agora.getHours()) + ':' + pad2(agora.getMinutes());
   const prox = ocorrencias(hoje(), addDays(hoje(), 14)).find(o => o.data > hoje() || !o.e.hora || o.e.hora >= hhmm);
-  let proxRow = '';
+  let apptRow = '<button class="srow appt3" data-act="tabag"><i aria-hidden="true"></i><span class="ax"><b>Agenda</b><span>Nada marcado</span></span></button>';
   if (prox){
     let quando = '';
     if (prox.e.hora){
@@ -687,16 +681,33 @@ function renderHoje(){
       const hrs = (dt - agora) / 3600000;
       quando = hrs < 1 ? 'em ' + Math.max(1, Math.round(hrs * 60)) + ' min' : hrs < 24 ? 'em ' + Math.round(hrs) + ' h' : 'em ' + Math.round(hrs / 24) + (Math.round(hrs / 24) === 1 ? ' dia' : ' dias');
     }
-    const dl = prox.data === hoje() ? 'Hoje' : prox.data === addDays(hoje(), 1) ? 'Amanhã' : DIAS_F[idxOf(parse(prox.data))] + ', ' + fmtD(prox.data);
-    proxRow = `<button class="appt t-${prox.e.tipo}" data-act="tabag"><i aria-hidden="true"></i><span class="ax"><b>${esc(prox.e.titulo || TIPOS[prox.e.tipo])}</b><span>${dl}${prox.e.hora ? ' às ' + esc(prox.e.hora) : ''}${prox.e.local ? ', ' + esc(prox.e.local) : ''}</span></span>${quando ? `<span class="aw">${quando}</span>` : ''}</button>`;
+    const dl = prox.data === hoje() ? 'Hoje' : prox.data === addDays(hoje(), 1) ? 'Amanhã' : DIAS[idxOf(parse(prox.data))] + ' ' + fmtD(prox.data);
+    const tit = (prox.e.titulo || TIPOS[prox.e.tipo] || '').split(' · ')[0];
+    apptRow = `<button class="srow appt3 t-${prox.e.tipo}" data-act="tabag"><i aria-hidden="true"></i><span class="ax"><b>${esc(tit)}</b><span>${dl}${prox.e.hora ? ', ' + esc(prox.e.hora) : ''}</span>${quando ? '<em>' + quando + '</em>' : ''}</span></button>`;
   }
+  const supPend = sup.filter(x => !L.supl[x.id]);
+  const supRow = !sup.length ? '' : supPend.length
+    ? `<div class="srow suprow"><span class="ax"><b>Suplementos <span class="cnt3">${sup.length - supPend.length}/${sup.length}</span></b><span>${esc(supPend[0].nome)}</span></span><button class="tomei" data-act="supl" data-id="${supPend[0].id}" aria-label="Marcar ${esc(supPend[0].nome)} como tomado">Tomei</button></div>`
+    : `<div class="srow suprow ok"><span class="ax"><b>Suplementos <span class="cnt3">${sup.length}/${sup.length}</span></b><span>Todos tomados</span></span></div>`;
+  const proxTile = `<div class="tile side">${apptRow}${supRow}</div>`;
 
-  h += `<section class="hero3">
-      <div class="hh"><div class="ht"><span class="hk">${isToday ? 'Treino de hoje' : 'Treino de ' + DIAS_F[i].toLowerCase()}${trocado ? ' (trocado)' : ''}</span><h1 class="hn" style="font-size:${fs}px">${esc(nome)}</h1></div>
-        <button class="swap" data-act="tpick" aria-label="Trocar treino">${ICON.swap}<span>Trocar</span></button></div>
-      ${figura}${barraTxt}
-      <div class="dayp" aria-label="Dia ${pct}% concluído"><span>Dia</span><span class="dpb"><i style="width:${pct}%"></i></span><b>${pct}%</b></div>
-    </section>${strip}${next}${proxRow}`;
+  h += `<section class="bento2">
+    <div class="tile wide palco ${t.itens.length ? '' : 'livre'}">
+      <div class="pl">
+        <span class="hk">${isToday ? 'Treino de hoje' : 'Treino de ' + DIAS_F[i].toLowerCase()}${trocado ? ' (trocado)' : ''}</span>
+        <h1 class="hn" style="font-size:${fs}px">${esc(nome)}</h1>
+        ${pills}
+        <button class="swap" data-act="tpick">${ICON.swap}<span>Trocar</span></button>
+      </div>
+      ${figura}
+      <div class="pfoot"><span>${t.itens.length ? exOk + ' de ' + t.itens.length + ' exercícios' : 'Dia'}</span><span class="dpb"><i style="width:${pct}%"></i></span><b>Dia ${pct}%</b></div>
+    </div>
+    ${t.itens.length || t.cardio ? `<div class="tile"><div class="th"><span class="sl">Tempo</span>${L.inicio && !L.fim ? '<i class="live" aria-hidden="true"></i>' : ''}</div><span class="sv">${tVal}</span><span class="ss">${tSub}</span>${tAct}</div>
+    <div class="tile"><span class="sl">Volume</span><span class="sv" id="vvol">${Math.round(volHoje).toLocaleString('pt-BR')}</span><span class="ss ${vDelta != null ? (vDelta >= 0 ? 'up' : 'dn') : ''}">${vSub}</span><div class="bars">${bars}</div></div>` : ''}
+    ${next}
+    ${agua}
+    ${proxTile}
+  </section>`;
 
   if (pickOpen){
     let pk = '<p class="tip">Escolha qual treino do plano você vai fazer hoje. O histórico e as cargas acompanham o treino escolhido.</p>';
@@ -928,7 +939,8 @@ function evtHtml(o, rem){
 function renderAgenda(){
   const h0 = hoje();
   let h = '<h1>Agenda</h1>';
-  h += `<h2 class="mh">Novo compromisso</h2><div class="fields">
+  if (!agendaForm) h += '<button class="btn primary" data-act="aform">+ Novo compromisso</button>';
+  else h += `<h2 class="mh">Novo compromisso</h2><div class="fields">
     <label>Tipo<select id="a_tipo">${Object.keys(TIPOS).map(k => `<option value="${k}">${TIPOS[k]}</option>`).join('')}</select></label>
     <label>Título<input id="a_tit" placeholder="Ex.: Ortopedista"></label>
     <label>Data<input type="date" id="a_data" value="${h0}"></label>
@@ -936,7 +948,7 @@ function renderAgenda(){
     <label class="full">Local<input id="a_loc" placeholder="Ex.: Clínica, quadra…"></label>
     <label class="full">Observação<input id="a_obs" placeholder="Ex.: levar exames"></label>
     <label class="full ckl"><input type="checkbox" id="a_sem">Repetir toda semana</label></div>
-    <button class="btn primary" data-act="aadd">Salvar compromisso</button>`;
+    <div class="tbtns"><button class="btn" data-act="aformx">Cancelar</button><button class="btn primary" data-act="aadd">Salvar</button></div>`;
   const prox = ocorrencias(h0, addDays(h0, 30));
   h += '<h2 class="mh">Próximos 30 dias</h2>';
   h += prox.length ? prox.map(o => evtHtml(o, true)).join('') : '<p class="muted">Nada marcado.</p>';
@@ -1067,11 +1079,13 @@ VIEW.addEventListener('click', async e => {
       save('exames'); keepScroll(render); return;
     }
     case 'erem': if (confirm('Apagar o resultado mais recente deste exame?')){ S.exames = S.exames.filter(x => x.id !== id); save('exames'); keepScroll(render); } return;
+    case 'aform': agendaForm = true; render(); return;
+    case 'aformx': agendaForm = false; render(); return;
     case 'aadd': {
       const data = $('#a_data').value;
       if (!data){ alert('Escolha a data.'); return; }
       S.agenda.push({ id:uid(), tipo:$('#a_tipo').value, titulo:$('#a_tit').value.trim(), data, hora:$('#a_hora').value, local:$('#a_loc').value.trim(), obs:$('#a_obs').value.trim(), semanal:$('#a_sem').checked });
-      save('agenda'); keepScroll(render); return;
+      agendaForm = false; save('agenda'); render(); window.scrollTo(0,0); toast('Compromisso salvo'); return;
     }
     case 'arem': {
       const ev = S.agenda.find(x => x.id === id); if (!ev) return;
