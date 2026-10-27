@@ -235,3 +235,7 @@ details.ex.done .dot,details.ex[open] .dot{background:var(--grad)}
 .hero .stats{position:relative;z-index:1;width:100%;display:grid;grid-template-columns:repeat(3,1fr);margin-top:4px}
 .rp{display:flex;align-items:center;justify-content:center}
 .evt .tag{align-self:flex-start;margin-bottom:4px;padding:2px 8px;font-size:10.5px}
+.swap{position:relative;z-index:1;display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:7px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.18);color:#fff;font-size:12.5px;font-weight:800;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.swap svg,.pi svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.swap:active{transform:scale(.97)}
+.row.pick.done .rn{text-decoration:none;color:var(--ink)}

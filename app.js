@@ -11,7 +11,8 @@ const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','ag
 const CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const ICON = {
   l: '<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
-  r: '<svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>'
+  r: '<svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>',
+  swap: '<svg viewBox="0 0 24 24"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>'
 };
 const EXAMES = ['Hematócrito','Hemoglobina','Testosterona total','Testosterona livre','Estradiol','PSA','TGO','TGP','Colesterol total','LDL','HDL','Triglicerídeos','Glicemia','Creatinina','Vitamina D','Ferritina'];
 
@@ -80,6 +81,7 @@ const SEED_NOTAS = 'LCA do joelho direito rompido (operado em 2018)\n5º metacar
 let sb = null, user = null, S = {};
 let tab = 'hoje', cur = hoje(), planDay = idxOf(new Date()), planSeg = 'treino', progEx = '';
 const openEx = {};
+let pickOpen = false;
 const P = () => S.plano;
 
 function dia(date){
@@ -89,9 +91,11 @@ function dia(date){
   ['treino','ativ','ref','supl'].forEach(f => { if (!L[f]) L[f] = {}; });
   return L;
 }
+function tIdx(date){ const L = S['dia:' + date]; return L && L.treinoDia != null ? L.treinoDia : idxOf(parse(date)); }
+function treinoDo(date){ return P().treinos[tIdx(date)]; }
 function touch(date){
   const L = dia(date);
-  const t = P().treinos[idxOf(parse(date))];
+  const t = treinoDo(date);
   L.tnome = t ? t.nome : '';
   save('dia:' + date);
 }
@@ -273,8 +277,8 @@ function ring(pct){
 }
 function renderHoje(){
   const d = parse(cur), i = idxOf(d), isToday = cur === hoje();
-  const t = P().treinos[i] || { nome:'', itens:[], atividades:[] };
-  const L = dia(cur);
+  const L = dia(cur), ti = tIdx(cur), trocado = ti !== i;
+  const t = P().treinos[ti] || { nome:'', itens:[], atividades:[] };
   const sup = P().suplementos.filter(s => (s.dias||[]).includes(i));
   let tot = 0, ok = 0, exOk = 0, refOk = 0;
   t.itens.forEach(e => { tot++; const r = L.treino[e.id]; if (r && r.series.length && r.series.every(s => s.ok)){ ok++; exOk++; } });
@@ -288,7 +292,18 @@ function renderHoje(){
   let h = `<div class="dnav"><button class="wkb" data-act="dprev" aria-label="Dia anterior">${ICON.l}</button>
     <div class="dl"><strong>${DIAS_F[i]}${isToday?' · hoje':''}</strong><span>${fmtLong(d)}</span>${isToday?'':'<button class="linkbtn sm" data-act="dtoday">Voltar pra hoje</button>'}</div>
     <button class="wkb" data-act="dnext" aria-label="Próximo dia">${ICON.r}</button></div>`;
-  h += `<section class="hero"><div class="hl"><span class="eyebrow">${isToday ? 'Treino de hoje' : 'Treino de ' + DIAS_F[i].toLowerCase()}</span><h1>${esc(t.nome || 'Descanso')}</h1></div>${ring(pct)}<div class="stats"><span><b>${exOk}/${t.itens.length}</b>exercícios</span><span><b>${fmtN((L.agua||0)/1000)} L</b>água</span><span><b>${refOk}/${P().refeicoes.length}</b>refeições</span></div></section>`;
+  h += `<section class="hero"><div class="hl"><span class="eyebrow">${isToday ? 'Treino de hoje' : 'Treino de ' + DIAS_F[i].toLowerCase()}</span><h1>${esc(t.nome || 'Descanso')}</h1><button class="swap" data-act="tpick">${ICON.swap} ${trocado ? 'Treino de ' + DIAS_F[ti].toLowerCase() + ' · trocar' : 'Trocar treino'}</button></div>${ring(pct)}<div class="stats"><span><b>${exOk}/${t.itens.length}</b>exercícios</span><span><b>${fmtN((L.agua||0)/1000)} L</b>água</span><span><b>${refOk}/${P().refeicoes.length}</b>refeições</span></div></section>`;
+
+  if (pickOpen){
+    let pk = '<p class="tip">Escolha qual treino do plano você vai fazer hoje. O histórico e as cargas acompanham o treino escolhido.</p>';
+    DIAS_F.forEach((n,k) => {
+      const tt = P().treinos[k]; if (!tt) return;
+      const desc = [tt.itens.length ? tt.itens.length + ' exercícios' : '', tt.cardio || '', (tt.atividades||[]).join(', ')].filter(Boolean).join(' · ') || 'sem exercícios';
+      pk += `<button class="row pick ${k===ti?'done':''}" data-act="tset" data-id="${k}"><span class="c">${CHECK}</span><span class="rowmain"><span class="rn">${esc(tt.nome || 'Descanso')}</span><span class="rd">${DIAS[k]}${k===i?' (padrão de hoje)':''} · ${esc(desc)}</span></span></button>`;
+    });
+    pk += '<button class="btn" data-act="tclose">Cancelar</button>';
+    h += panel('Trocar treino', ICON.swap, pk);
+  }
 
   const evs = ocorrencias(cur, cur);
   if (evs.length) h += panel('Compromissos', IC.agenda, evs.map(o => evtHtml(o, false)).join(''));
@@ -525,14 +540,17 @@ VIEW.addEventListener('click', async e => {
   const t = P().treinos[planDay];
 
   switch (a){
-    case 'dprev': cur = addDays(cur, -1); render(); return;
-    case 'dnext': cur = addDays(cur, 1); render(); return;
+    case 'dprev': cur = addDays(cur, -1); pickOpen = false; render(); return;
+    case 'dnext': cur = addDays(cur, 1); pickOpen = false; render(); return;
+    case 'tpick': pickOpen = !pickOpen; keepScroll(render); return;
+    case 'tclose': pickOpen = false; keepScroll(render); return;
+    case 'tset': { const k = parseInt(id); if (k === idxOf(parse(cur))) delete L.treinoDia; else L.treinoDia = k; pickOpen = false; touch(cur); render(); window.scrollTo(0,0); return; }
     case 'dtoday': cur = hoje(); render(); return;
     case 'goday': cur = id; tab = 'hoje'; render(); window.scrollTo(0,0); return;
 
     case 'setok': {
       e.preventDefault();
-      const tr = P().treinos[idxOf(parse(cur))];
+      const tr = treinoDo(cur);
       const exo = tr.itens.find(x => x.id === exId); const r = getEx(L, exo); const s = r.series[i];
       s.ok = !s.ok;
       if (s.ok){
@@ -542,7 +560,7 @@ VIEW.addEventListener('click', async e => {
       }
       r.nome = exo.nome; touch(cur); keepScroll(render); return;
     }
-    case 'addset': { e.preventDefault(); const exo = P().treinos[idxOf(parse(cur))].itens.find(x => x.id === exId); getEx(L, exo).series.push({ kg:'', reps:'', ok:false }); touch(cur); keepScroll(render); return; }
+    case 'addset': { e.preventDefault(); const exo = treinoDo(cur).itens.find(x => x.id === exId); getEx(L, exo).series.push({ kg:'', reps:'', ok:false }); touch(cur); keepScroll(render); return; }
     case 'delset': { e.preventDefault(); const r = L.treino[exId]; if (r && r.series.length > 1){ r.series.splice(i,1); touch(cur); keepScroll(render); } return; }
     case 'cardio': L.cardio = !L.cardio; touch(cur); keepScroll(render); return;
     case 'ativ': L.ativ[id] = !L.ativ[id]; touch(cur); keepScroll(render); return;
@@ -611,7 +629,7 @@ VIEW.addEventListener('change', e => {
   const el = e.target, f = el.dataset.f, pf = el.dataset.pf;
   if (f){
     if (f === 'kg' || f === 'reps'){
-      const exo = P().treinos[idxOf(parse(cur))].itens.find(x => x.id === el.dataset.ex);
+      const exo = treinoDo(cur).itens.find(x => x.id === el.dataset.ex);
       const r = getEx(dia(cur), exo); r.nome = exo.nome; r.series[parseInt(el.dataset.i)][f] = el.value.trim(); touch(cur);
     } else if (f === 'nota'){ dia(cur).nota = el.value; touch(cur); }
     else if (f === 'progex'){ progEx = el.value; keepScroll(render); }
