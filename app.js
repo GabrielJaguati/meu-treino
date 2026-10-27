@@ -83,6 +83,7 @@ let tab = 'hoje', cur = hoje(), planDay = idxOf(new Date()), planSeg = 'treino',
 const openEx = {};
 let pickOpen = false;
 let pendRender = false;
+const barraAnt = {};
 const P = () => S.plano;
 
 function dia(date){
@@ -275,7 +276,7 @@ const IC = {
   agenda:'<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>',
   trofeu:'<svg viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 20h8M10 17h4"/></svg>'
 };
-const panel = (title, ico, body, extra) => `<section class="panel"><header class="ph"><span class="pi">${ico}</span><h2>${title}</h2>${extra||''}</header>${body}</section>`;
+const panel = (title, ico, body, extra) => `<section class="panel"><header class="ph"><h2>${title}</h2>${extra||''}</header>${body}</section>`;
 function ring(pct){
   const r = 34, c = 2 * Math.PI * r, off = c * (1 - pct / 100);
   return `<div class="ringbox"><svg class="ring" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="${r}" class="rb"/><circle cx="42" cy="42" r="${r}" class="rf" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"/></svg><span class="rp">${pct}<small>%</small></span></div>`;
@@ -341,7 +342,7 @@ async function shareResumo(){
   x.fillStyle = g; x.fillRect(0, 0, W, H);
   x.fillStyle = 'rgba(255,255,255,.10)'; x.beginPath(); x.arc(W - 60, 110, 340, 0, 7); x.fill();
   x.fillStyle = 'rgba(0,0,0,.12)'; x.beginPath(); x.arc(40, H - 20, 320, 0, 7); x.fill();
-  const HF = 'Anton,Impact,"Arial Narrow",sans-serif', BF = 'Inter,system-ui,-apple-system,sans-serif';
+  const HF = 'Anton,Impact,"Arial Narrow",sans-serif', BF = 'Archivo,system-ui,-apple-system,sans-serif';
   const box = (bx, by, bw, bh) => { x.fillStyle = 'rgba(0,0,0,.20)'; x.beginPath(); if (x.roundRect) x.roundRect(bx, by, bw, bh, 34); else x.rect(bx, by, bw, bh); x.fill(); };
   x.fillStyle = '#fff'; x.textBaseline = 'alphabetic';
   x.globalAlpha = .85; x.font = `800 32px ${BF}`; x.fillText(('Meu Treino · ' + fmtLong(parse(cur))).toUpperCase(), 80, 140); x.globalAlpha = 1;
@@ -475,7 +476,7 @@ function mapaHtml(){
     const quando = x.dias == null ? 'sem registro' : x.dias === 0 ? 'hoje' : x.dias === 1 ? 'ontem' : 'há ' + x.dias + ' dias';
     return `<div class="mg"><i style="background:${corSt(x.st)}"></i><span class="lm"><b>${nome}</b><span class="rd">${quando}${x.series ? ' · ' + x.series + ' séries na semana' : ''}</span></span></div>`;
   }).join('');
-  return `<div class="bodies"><div><span class="lbl">FRENTE</span>${frente}</div><div><span class="lbl">COSTAS</span>${costas}</div></div>
+  return `<div class="bodies"><div><span class="lbl">Frente</span>${frente}</div><div><span class="lbl">Costas</span>${costas}</div></div>
     <div class="legend2"><span><i style="background:var(--accent)"></i>Recuperando</span><span><i style="background:var(--warn)"></i>Quase</span><span><i style="background:var(--ok)"></i>Pronto</span><span><i style="background:#2A2A30"></i>Parado 7+ dias</span></div>
     <div class="mgrid">${lista}</div>`;
 }
@@ -571,7 +572,7 @@ function renderHoje(){
   const pct = tot ? Math.round(ok / tot * 100) : 0;
   const meta = P().metaAgua || 3500;
 
-  // ---- cabeçalho, semana e painel em blocos ----
+  // ---- cabeçalho, semana e a barra ----
   const NOME = 'Gabriel';
   const hr = new Date().getHours();
   const saud = hr < 12 ? 'Bom dia' : hr < 18 ? 'Boa tarde' : 'Boa noite';
@@ -584,80 +585,92 @@ function renderHoje(){
   let wk = `<button class="wk-arrow" data-act="wprev" aria-label="Semana anterior">${ICON.l}</button>`;
   for (let k = 0; k < 7; k++){
     const ds = addDays(ini, k), on = ds === cur, td = ds === hoje(), dn = treinou(S['dia:' + ds]);
-    wk += `<button class="wk-day ${on?'on':''} ${td?'today':''}" data-act="goday" data-id="${ds}"><span>${LET[k]}</span><b>${pad2(parse(ds).getDate())}</b><i class="${dn?'dn':''}"></i></button>`;
+    wk += `<button class="wk-day ${on?'on':''} ${td?'today':''}" data-act="goday" data-id="${ds}" aria-label="${DIAS_F[k]} ${fmtD(ds)}${dn ? ', treinou' : ''}"><span>${LET[k]}</span><b>${parse(ds).getDate()}</b><i class="${dn?'dn':''}"></i></button>`;
   }
   wk += `<button class="wk-arrow" data-act="wnext" aria-label="Próxima semana">${ICON.r}</button>`;
 
-  let h = `<header class="top"><div class="tl"><span class="eyebrow">${DIAS_F[i].toUpperCase()} · ${pad2(d.getDate())} ${MESES[d.getMonth()].slice(0,3).toUpperCase()}${isToday ? '' : ' · <button class="lnk" data-act="dtoday">VOLTAR PRA HOJE</button>'}</span><span class="hi">${saud}, ${NOME}</span></div>${streak ? `<span class="streak"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c2 3 5 5 5 9a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-8z"/></svg>${streak} ${streak === 1 ? 'DIA' : 'DIAS'}</span>` : ''}</header>`;
+  const dataTxt = (isToday ? 'Hoje, ' : DIAS_F[i] + ', ') + d.getDate() + ' de ' + MESES[d.getMonth()];
+  let h = `<header class="top"><div class="tl"><span class="dt">${dataTxt}${isToday ? '' : ' <button class="lnk" data-act="dtoday">voltar pra hoje</button>'}</span><span class="hi">${saud}, ${NOME}</span></div>${streak ? `<span class="streak" title="Dias seguidos com treino"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c2 3 5 5 5 9a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-8z"/></svg><b>${streak}</b> ${streak === 1 ? 'dia' : 'dias'}</span>` : ''}</header>`;
   h += `<nav class="week" aria-label="Dias da semana">${wk}</nav>`;
 
-  // dados dos blocos
+  // ---- a barra: cada exercício feito carrega um par de anilhas ----
   const nome = t.nome || 'Descanso';
-  const fs = nome.length <= 7 ? 70 : nome.length <= 12 ? 54 : nome.length <= 18 ? 42 : 34;
+  const ANIL = [
+    { kg:25, cor:'var(--p25)', w:15, h:92 }, { kg:20, cor:'var(--p20)', w:13, h:92 }, { kg:15, cor:'var(--p15)', w:11, h:92 },
+    { kg:10, cor:'var(--p10)', w:9, h:92 }, { kg:5, cor:'var(--p5)', w:7, h:58 }, { kg:2.5, cor:'var(--p25)', w:6, h:44 }
+  ];
+  const slots = t.itens.length ? t.itens.map((_, k) => ANIL[k % ANIL.length]) : [];
+  const carga = 20 + slots.slice(0, exOk).reduce((a, p) => a + p.kg * 2, 0);
+  const prevLoad = barraAnt[cur], novo = prevLoad != null && exOk > prevLoad ? exOk - 1 : -1;
+  barraAnt[cur] = exOk;
+  const W = 340, cy = 58, inL = 112, inR = 228;
+  let svg = `<rect x="${inL}" y="${cy-3}" width="${inR-inL}" height="6" rx="3" class="shaft"/><rect x="146" y="${cy-3}" width="48" height="6" class="knurl"/>`;
+  svg += `<rect x="${inL-6}" y="${cy-11}" width="6" height="22" rx="2" class="collar"/><rect x="${inR}" y="${cy-11}" width="6" height="22" rx="2" class="collar"/>`;
+  svg += `<rect x="14" y="${cy-6}" width="${inL-6-14}" height="12" rx="3" class="sleeve"/><rect x="${inR+6}" y="${cy-6}" width="${W-14-inR-6}" height="12" rx="3" class="sleeve"/>`;
+  let xl = inL - 6, xr = inR + 6;
+  slots.forEach((p, k) => {
+    xl -= p.w + 2; const yy = cy - p.h / 2;
+    const on = k < exOk, cls = on ? 'pl on' + (k === novo ? ' drop' : '') : 'pl off';
+    svg += `<rect x="${xl}" y="${yy}" width="${p.w}" height="${p.h}" rx="3" class="${cls} l" style="${on ? 'fill:' + p.cor : ''}"/>`;
+    svg += `<rect x="${xr + 2}" y="${yy}" width="${p.w}" height="${p.h}" rx="3" class="${cls} r" style="${on ? 'fill:' + p.cor : ''}"/>`;
+    xr += p.w + 2;
+  });
+  const barraSvg = t.itens.length ? `<svg class="barra" viewBox="0 0 ${W} 116" role="img" aria-label="${exOk} de ${t.itens.length} exercícios feitos">${svg}</svg>` : '';
+  const fs = nome.length <= 8 ? 64 : nome.length <= 14 ? 50 : nome.length <= 20 ? 40 : 32;
+  let barraTxt;
+  if (!t.itens.length) barraTxt = `<p class="bsub">${esc([t.cardio, ...(t.atividades||[])].filter(Boolean).join(' e ') || 'Dia livre. Descanse ou faça um cardio leve.')}</p>`;
+  else barraTxt = `<div class="bfoot"><span><b>${exOk}</b> de ${t.itens.length} exercícios</span><span class="kgbar">${exOk ? 'Na barra: <b>' + fmtN(carga) + ' kg</b>' : 'Barra vazia: 20 kg'}</span></div>`;
+
+  // ---- faixa de números: tempo, volume, água ----
   const durs = Object.keys(S).filter(k => k.startsWith('dia:') && k.slice(4) < cur && S[k].inicio && S[k].fim).map(k => S[k].fim - S[k].inicio).filter(v => v > 5*60000 && v < 4*3600000);
   const media = durs.length ? durs.reduce((a,b) => a + b, 0) / durs.length : null;
-  let tVal = '--:--', tSub = media ? 'MÉDIA ' + fmtDurTxt(media).toUpperCase() : 'CRONÔMETRO', tBtn = '';
-  if (L.inicio && !L.fim){ tVal = `<span id="tdur">${fmtDur(Date.now() - L.inicio)}</span>`; tBtn = '<button class="tile-btn" data-act="tfim">FINALIZAR</button>'; }
-  else if (L.inicio && L.fim){ tVal = fmtDur(L.fim - L.inicio); tSub = 'FINALIZADO'; tBtn = '<div class="tbtns"><button class="tile-btn ghost" data-act="tret">RETOMAR</button><button class="tile-btn ghost" data-act="tedit">EDITAR</button></div>'; }
-  else if (t.itens.length || t.cardio) tBtn = '<button class="tile-btn" data-act="tstart">▶ INICIAR</button><button class="tile-lnk" data-act="tedit">LANÇAR TEMPO MANUAL</button>';
+  let tVal = '0:00', tSub = media ? 'média ' + fmtDurTxt(media) : 'cronômetro', tAct = '';
+  if (L.inicio && !L.fim){ tVal = `<span id="tdur">${fmtDur(Date.now() - L.inicio)}</span>`; tSub = 'treinando'; tAct = '<button class="sbtn hot" data-act="tfim">Finalizar</button>'; }
+  else if (L.inicio && L.fim){ tVal = fmtDur(L.fim - L.inicio); tSub = 'finalizado'; tAct = '<button class="sbtn" data-act="tedit">Editar</button>'; }
+  else if (t.itens.length || t.cardio) tAct = '<button class="sbtn hot" data-act="tstart">Iniciar</button><button class="slnk" data-act="tedit">lançar à mão</button>';
   const volHoje = volDia(L);
-  const vols = Object.keys(S).filter(k => k.startsWith('dia:') && k.slice(4) < cur).sort().map(k => volDia(S[k])).filter(v => v > 0).slice(-4).concat([volHoje]);
-  const vMax = Math.max(1, ...vols);
-  const bars = vols.map((v,k) => `<span style="height:${Math.max(8, Math.round(v / vMax * 100))}%" class="${k === vols.length - 1 ? 'cur' : ''}"></span>`).join('');
-  const atual = t.itens.findIndex(e => { const r = L.treino[e.id]; return !(r && r.series.length && r.series.every(s => s.ok)); });
-  let exTile;
-  if (!t.itens.length) exTile = `<div class="tile wide cur-ex none"><span class="num">—</span><div class="cx"><b>${t.cardio || (t.atividades||[]).length ? 'DIA DE CARDIO E JOGO' : 'DIA DE DESCANSO'}</b><span class="lbl">${esc([t.cardio, ...(t.atividades||[])].filter(Boolean).join(' · ') || 'Sem exercícios no plano')}</span></div></div>`;
-  else if (atual < 0) exTile = `<div class="tile wide cur-ex okk"><span class="num">✓</span><div class="cx"><b>TREINO COMPLETO</b><span class="lbl">${t.itens.length} EXERCÍCIOS FEITOS</span></div>${L.fim ? '' : '<button class="go" data-act="tfim" aria-label="Finalizar treino">' + ICON.r + '</button>'}</div>`;
-  else {
-    const e = t.itens[atual], r = getEx(L, e), nOk = r.series.filter(s => s.ok).length, last = lastSets(e, cur);
-    const kg = (r.series.find(s => !s.ok && s.kg) || {}).kg || (last && last[nOk] && last[nOk].kg) || '';
-    exTile = `<div class="tile wide cur-ex"><span class="num">${pad2(atual + 1)}</span><div class="cx"><div class="cxh"><b>${esc(e.nome.toUpperCase())}</b><span class="lbl">${nOk}/${r.series.length}${kg ? ' · ' + esc(kg) + ' KG' : ''}</span></div><div class="segs" style="grid-template-columns:repeat(${r.series.length},minmax(0,1fr))">${r.series.map(s => `<i class="${s.ok?'on':''}"></i>`).join('')}</div></div><button class="go" data-act="goex" data-ex="${e.id}" aria-label="Abrir ${esc(e.nome)}">${ICON.r}</button></div>`;
-  }
+  const ant = sessaoAnterior(L, cur);
+  const vDelta = ant && volHoje ? Math.round((volHoje - ant.vol) / ant.vol * 100) : null;
+  const vSub = vDelta == null ? 'kg levantados' : (vDelta >= 0 ? '+' : '−') + Math.abs(vDelta) + '% vs ' + fmtD(ant.data);
   const aguaPct = Math.min(100, Math.round((L.agua||0) / meta * 100));
-  const M = (S.medidas||[]).filter(m => m.peso != null).sort((a,b) => a.data < b.data ? -1 : 1);
-  const pesoAt = M.length ? M[M.length-1].peso : null;
-  let spark = '';
-  if (M.length > 1){
-    const pts = M.slice(-8), mn = Math.min(...pts.map(m => m.peso)), mx = Math.max(...pts.map(m => m.peso)), rg = (mx - mn) || 1;
-    const sx = k => (k * 130 / (pts.length - 1)).toFixed(1), sy = v => (3 + (mx - v) / rg * 16).toFixed(1);
-    const desce = pts[pts.length-1].peso <= pts[0].peso;
-    spark = `<svg class="spark" viewBox="0 0 130 22" aria-hidden="true"><polyline points="${pts.map((m,k) => sx(k) + ',' + sy(m.peso)).join(' ')}" style="stroke:${desce ? 'var(--ok)' : 'var(--warn)'}"/></svg>`;
+  const strip = `<section class="strip" aria-label="Resumo do dia">
+    <div class="sc"><span class="sl">Tempo${L.inicio && !L.fim ? ' <i class="live" aria-hidden="true"></i>' : ''}</span><span class="sv">${tVal}</span><span class="ss">${tSub}</span>${tAct}</div>
+    <div class="sc"><span class="sl">Volume</span><span class="sv" id="vvol">${Math.round(volHoje).toLocaleString('pt-BR')}</span><span class="ss ${vDelta != null ? (vDelta >= 0 ? 'up' : 'dn') : ''}">${vSub}</span></div>
+    <div class="sc"><span class="sl">Água</span><span class="sv">${fmtN((L.agua||0)/1000)}<small> L</small></span><span class="wbar" aria-hidden="true"><i style="width:${aguaPct}%"></i></span><span class="ss">meta ${fmtN(meta/1000)} L</span><div class="wbtn"><button class="sbtn blue" data-act="agua" data-v="250">+250</button><button class="sbtn" data-act="agua" data-v="-250" aria-label="Tirar 250 ml">−</button></div></div>
+  </section>`;
+
+  // ---- próximo passo ----
+  const atual = t.itens.findIndex(e => { const r = L.treino[e.id]; return !(r && r.series.length && r.series.every(s => s.ok)); });
+  let next = '';
+  if (t.itens.length && atual >= 0){
+    const e = t.itens[atual], r = getEx(L, e), nOk = r.series.filter(s => s.ok).length, last = lastSets(e, cur), sg = sugestao(e, cur);
+    const kg = (r.series.find(s => !s.ok && s.kg) || {}).kg || (sg ? fmtN(sg.kg) : '') || (last && last[nOk] && last[nOk].kg) || '';
+    next = `<button class="next" data-act="goex" data-ex="${e.id}"><span class="nx"><span class="nl">${nOk ? 'Continuar' : exOk ? 'Próximo exercício' : 'Comece por'}</span><span class="nn">${esc(e.nome)}</span><span class="nd">Série ${Math.min(nOk + 1, r.series.length)} de ${r.series.length}${kg ? ', ' + esc(kg) + ' kg' : ''}</span></span><span class="na" aria-hidden="true">${ICON.r}</span></button>`;
+  } else if (t.itens.length && !L.fim){
+    next = `<button class="next done" data-act="tfim"><span class="nx"><span class="nl">Treino completo</span><span class="nn">Finalizar e ver o resumo</span></span><span class="na" aria-hidden="true">${ICON.r}</span></button>`;
   }
-  const supOkN = sup.filter(s => L.supl[s.id]).length;
-  const prs = recordes(L, cur);
+
+  // ---- próximo compromisso ----
   const agora = new Date(), hhmm = pad2(agora.getHours()) + ':' + pad2(agora.getMinutes());
   const prox = ocorrencias(hoje(), addDays(hoje(), 14)).find(o => o.data > hoje() || !o.e.hora || o.e.hora >= hhmm);
-  let proxTile = '';
+  let proxRow = '';
   if (prox){
-    let quando;
+    let quando = '';
     if (prox.e.hora){
       const p = prox.e.hora.split(':').map(Number), dt = parse(prox.data); dt.setHours(p[0], p[1]);
       const hrs = (dt - agora) / 3600000;
-      quando = hrs < 1 ? 'AGORA' : hrs < 24 ? Math.round(hrs) + 'H' : Math.round(hrs / 24) + (Math.round(hrs/24) === 1 ? ' DIA' : ' DIAS');
-    } else quando = prox.data === hoje() ? 'HOJE' : Math.round((parse(prox.data) - parse(hoje())) / 864e5) + 'D';
-    const dl = prox.data === hoje() ? 'Hoje' : prox.data === addDays(hoje(), 1) ? 'Amanhã' : DIAS[idxOf(parse(prox.data))] + ' ' + fmtD(prox.data);
-    proxTile = `<button class="tile wide next t-${prox.e.tipo}" data-act="tabag"><span class="badge">${(TIPOS[prox.e.tipo]||'Outro').toUpperCase()}</span><span class="cx"><b>${esc(prox.e.titulo || TIPOS[prox.e.tipo])}</b><span class="lbl2">${dl}${prox.e.hora ? ' · ' + esc(prox.e.hora) : ''}${prox.e.local ? ' · ' + esc(prox.e.local) : ''}</span></span><span class="when">${quando}</span></button>`;
+      quando = hrs < 1 ? 'em ' + Math.max(1, Math.round(hrs * 60)) + ' min' : hrs < 24 ? 'em ' + Math.round(hrs) + ' h' : 'em ' + Math.round(hrs / 24) + (Math.round(hrs / 24) === 1 ? ' dia' : ' dias');
+    }
+    const dl = prox.data === hoje() ? 'Hoje' : prox.data === addDays(hoje(), 1) ? 'Amanhã' : DIAS_F[idxOf(parse(prox.data))] + ', ' + fmtD(prox.data);
+    proxRow = `<button class="appt t-${prox.e.tipo}" data-act="tabag"><i aria-hidden="true"></i><span class="ax"><b>${esc(prox.e.titulo || TIPOS[prox.e.tipo])}</b><span>${dl}${prox.e.hora ? ' às ' + esc(prox.e.hora) : ''}${prox.e.local ? ', ' + esc(prox.e.local) : ''}</span></span>${quando ? `<span class="aw">${quando}</span>` : ''}</button>`;
   }
 
-  h += `<section class="bento">
-    <div class="tile hero2">
-      <div class="hl"><span class="eyebrow">${isToday ? 'TREINO DE HOJE' : 'TREINO DE ' + DIAS_F[i].toUpperCase()}</span><span class="big" style="font-size:${fs}px">${esc(nome.toUpperCase())}</span>
-        <span class="sub2">${t.itens.length ? exOk + ' DE ' + t.itens.length + ' EXERCÍCIOS' : esc((t.cardio || '').toUpperCase())}</span>
-        <button class="swap" data-act="tpick">${ICON.swap} ${trocado ? 'DE ' + DIAS_F[ti].toUpperCase() + ' · TROCAR' : 'TROCAR TREINO'}</button></div>
-      <div class="ringbox"><svg class="ring" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="34" class="rb"/><circle cx="42" cy="42" r="34" class="rf" stroke-dasharray="213.6" stroke-dashoffset="${(213.6 * (1 - pct / 100)).toFixed(1)}"/></svg><span class="rp"><b>${pct}%</b><small>DO DIA</small></span></div>
-    </div>
-    <div class="tile"><div class="th"><span class="lbl">TEMPO</span>${L.inicio && !L.fim ? '<span class="live"></span>' : ''}</div><span class="val">${tVal}</span><span class="lbl">${tSub}</span>${tBtn}</div>
-    <div class="tile"><span class="lbl">VOLUME</span><span class="val" id="vvol">${Math.round(volHoje).toLocaleString('pt-BR')}</span><div class="bars">${bars}</div><span class="lbl">KG HOJE</span></div>
-    ${exTile}
-    <div class="tile water2"><div class="tank"><span style="height:${aguaPct}%"></span></div><div class="wc"><span class="lbl">ÁGUA</span><span class="val sm">${fmtN((L.agua||0)/1000)} L</span><span class="lbl">META ${fmtN(meta/1000)} L</span><div class="wbtn"><button data-act="agua" data-v="250">+250</button><button data-act="agua" data-v="500">+500</button><button data-act="agua" data-v="-250" aria-label="Tirar 250 ml">−</button></div></div></div>
-    <button class="tile" data-act="tabprog"><span class="lbl">PESO</span><span class="val sm">${pesoAt != null ? fmtN(pesoAt) : '–'}</span>${spark || '<span class="lbl">REGISTRAR</span>'}</button>
-    <div class="trio">
-      <div class="mini-t"><b>${refOk}/${P().refeicoes.length}</b><span>REFEIÇÕES</span></div>
-      <div class="mini-t"><b>${supOkN}/${sup.length}</b><span>SUPLEMENTOS</span></div>
-      <div class="mini-t"><b class="${prs.length ? 'gold' : ''}">${prs.length} PR</b><span>${prs.length ? esc(prs[0].nome.toUpperCase()) : 'RECORDES'}</span></div>
-    </div>
-    ${proxTile}
-  </section>`;
+  h += `<section class="hero3">
+      <div class="hh"><div class="ht"><span class="hk">${isToday ? 'Treino de hoje' : 'Treino de ' + DIAS_F[i].toLowerCase()}${trocado ? ' (trocado)' : ''}</span><h1 class="hn" style="font-size:${fs}px">${esc(nome)}</h1></div>
+        <button class="swap" data-act="tpick" aria-label="Trocar treino">${ICON.swap}<span>Trocar</span></button></div>
+      ${barraSvg}${barraTxt}
+      <div class="dayp" aria-label="Dia ${pct}% concluído"><span>Dia</span><span class="dpb"><i style="width:${pct}%"></i></span><b>${pct}%</b></div>
+    </section>${strip}${next}${proxRow}`;
 
   if (pickOpen){
     let pk = '<p class="tip">Escolha qual treino do plano você vai fazer hoje. O histórico e as cargas acompanham o treino escolhido.</p>';
