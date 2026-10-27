@@ -315,3 +315,19 @@ details.ex[open] .dot{background:var(--ink)}
 .tabbtn.on::before{content:'';position:absolute;top:0;left:30%;right:30%;height:3px;border-radius:0 0 3px 3px;background:var(--accent)}
 
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- boneco do treino ---------- */
+.treinofig{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center;margin:16px 0 6px}
+.figs{display:flex;gap:4px}
+.fig{width:88px;height:auto;display:block}
+.figs.one .fig{width:112px}
+.treinofig.pulse .fig{animation:acende .6s ease-out}
+@keyframes acende{0%{filter:drop-shadow(0 0 0 rgba(255,97,89,0))}40%{filter:drop-shadow(0 0 10px rgba(255,97,89,.65))}100%{filter:drop-shadow(0 0 0 rgba(255,97,89,0))}}
+.glist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;min-width:0}
+.glist li{display:grid;grid-template-columns:1fr auto;grid-template-areas:"n c" "b b";gap:4px 8px;align-items:baseline}
+.gn{grid-area:n;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gc{grid-area:c;font-size:13px;font-weight:600;color:var(--muted)}
+.gb{grid-area:b;height:5px;border-radius:3px;background:var(--surface2);overflow:hidden}
+.gb i{display:block;height:100%;background:var(--accent);border-radius:3px;transition:width .4s ease}
+.treinofig.solo{display:flex;justify-content:center;grid-template-columns:none;margin:10px 0 0}
+.ic-dia{width:120px;height:120px}

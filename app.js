@@ -446,31 +446,37 @@ function estadoMusculos(){
   return info;
 }
 function corSt(st){ return { rec:'var(--accent)', quase:'var(--warn)', pronto:'var(--ok)', parado:'#2A2A30' }[st]; }
+// boneco frente/costas; fill(id) devolve os atributos de pintura de cada grupo
+function corpoSvgs(fill, cls){
+  const N = 'fill="#1C1C20"', f = id => fill(id);
+  const frente = `<svg viewBox="0 0 100 190" class="${cls}" role="img" aria-label="Músculos, vista de frente">
+    <circle cx="50" cy="13" r="9" ${N}/><rect x="45" y="21" width="10" height="8" ${N}/>
+    <ellipse cx="31" cy="37" rx="8" ry="7" ${f('ombro')}/><ellipse cx="69" cy="37" rx="8" ry="7" ${f('ombro')}/>
+    <rect x="34" y="32" width="15.5" height="17" rx="5" ${f('peito')}/><rect x="50.5" y="32" width="15.5" height="17" rx="5" ${f('peito')}/>
+    <rect x="20" y="45" width="9" height="22" rx="4.5" ${f('biceps')}/><rect x="71" y="45" width="9" height="22" rx="4.5" ${f('biceps')}/>
+    <rect x="17" y="69" width="8" height="24" rx="4" ${N}/><rect x="75" y="69" width="8" height="24" rx="4" ${N}/>
+    <rect x="38" y="51" width="24" height="31" rx="6" ${f('abdomen')}/>
+    <path d="M36 84h28l2 8H34z" ${N}/>
+    <rect x="34" y="94" width="13" height="44" rx="6.5" ${f('quad')}/><rect x="53" y="94" width="13" height="44" rx="6.5" ${f('quad')}/>
+    <rect x="47.5" y="95" width="5" height="26" rx="2.5" ${f('adutor')}/>
+    <rect x="36" y="142" width="10" height="40" rx="5" ${N}/><rect x="54" y="142" width="10" height="40" rx="5" ${N}/>
+  </svg>`;
+  const costas = `<svg viewBox="0 0 100 190" class="${cls}" role="img" aria-label="Músculos, vista de costas">
+    <circle cx="50" cy="13" r="9" ${N}/><rect x="45" y="21" width="10" height="8" ${N}/>
+    <ellipse cx="31" cy="37" rx="8" ry="7" ${f('ombro')}/><ellipse cx="69" cy="37" rx="8" ry="7" ${f('ombro')}/>
+    <path d="M36 31h28l-3 50H39z" ${f('costas')}/>
+    <rect x="20" y="45" width="9" height="22" rx="4.5" ${f('triceps')}/><rect x="71" y="45" width="9" height="22" rx="4.5" ${f('triceps')}/>
+    <rect x="17" y="69" width="8" height="24" rx="4" ${N}/><rect x="75" y="69" width="8" height="24" rx="4" ${N}/>
+    <ellipse cx="42.5" cy="93" rx="8.5" ry="9" ${f('gluteo')}/><ellipse cx="57.5" cy="93" rx="8.5" ry="9" ${f('gluteo')}/>
+    <rect x="34" y="104" width="13" height="34" rx="6.5" ${f('posterior')}/><rect x="53" y="104" width="13" height="34" rx="6.5" ${f('posterior')}/>
+    <ellipse cx="41" cy="155" rx="6" ry="13" ${f('panturrilha')}/><ellipse cx="59" cy="155" rx="6" ry="13" ${f('panturrilha')}/>
+    <rect x="37" y="170" width="8" height="12" rx="4" ${N}/><rect x="55" y="170" width="8" height="12" rx="4" ${N}/>
+  </svg>`;
+  return { frente, costas };
+}
 function mapaHtml(){
-  const M = estadoMusculos(), c = id => corSt(M[id].st), N = '#1C1C20';
-  const frente = `<svg viewBox="0 0 100 190" class="body" role="img" aria-label="Músculos, vista de frente">
-    <circle cx="50" cy="13" r="9" fill="${N}"/><rect x="45" y="21" width="10" height="8" fill="${N}"/>
-    <ellipse cx="31" cy="37" rx="8" ry="7" fill="${c('ombro')}"/><ellipse cx="69" cy="37" rx="8" ry="7" fill="${c('ombro')}"/>
-    <rect x="34" y="32" width="15.5" height="17" rx="5" fill="${c('peito')}"/><rect x="50.5" y="32" width="15.5" height="17" rx="5" fill="${c('peito')}"/>
-    <rect x="20" y="45" width="9" height="22" rx="4.5" fill="${c('biceps')}"/><rect x="71" y="45" width="9" height="22" rx="4.5" fill="${c('biceps')}"/>
-    <rect x="17" y="69" width="8" height="24" rx="4" fill="${N}"/><rect x="75" y="69" width="8" height="24" rx="4" fill="${N}"/>
-    <rect x="38" y="51" width="24" height="31" rx="6" fill="${c('abdomen')}"/>
-    <path d="M36 84h28l2 8H34z" fill="${N}"/>
-    <rect x="34" y="94" width="13" height="44" rx="6.5" fill="${c('quad')}"/><rect x="53" y="94" width="13" height="44" rx="6.5" fill="${c('quad')}"/>
-    <rect x="47.5" y="95" width="5" height="26" rx="2.5" fill="${c('adutor')}"/>
-    <rect x="36" y="142" width="10" height="40" rx="5" fill="${N}"/><rect x="54" y="142" width="10" height="40" rx="5" fill="${N}"/>
-  </svg>`;
-  const costas = `<svg viewBox="0 0 100 190" class="body" role="img" aria-label="Músculos, vista de costas">
-    <circle cx="50" cy="13" r="9" fill="${N}"/><rect x="45" y="21" width="10" height="8" fill="${N}"/>
-    <ellipse cx="31" cy="37" rx="8" ry="7" fill="${c('ombro')}"/><ellipse cx="69" cy="37" rx="8" ry="7" fill="${c('ombro')}"/>
-    <path d="M36 31h28l-3 50H39z" fill="${c('costas')}"/>
-    <rect x="20" y="45" width="9" height="22" rx="4.5" fill="${c('triceps')}"/><rect x="71" y="45" width="9" height="22" rx="4.5" fill="${c('triceps')}"/>
-    <rect x="17" y="69" width="8" height="24" rx="4" fill="${N}"/><rect x="75" y="69" width="8" height="24" rx="4" fill="${N}"/>
-    <ellipse cx="42.5" cy="93" rx="8.5" ry="9" fill="${c('gluteo')}"/><ellipse cx="57.5" cy="93" rx="8.5" ry="9" fill="${c('gluteo')}"/>
-    <rect x="34" y="104" width="13" height="34" rx="6.5" fill="${c('posterior')}"/><rect x="53" y="104" width="13" height="34" rx="6.5" fill="${c('posterior')}"/>
-    <ellipse cx="41" cy="155" rx="6" ry="13" fill="${c('panturrilha')}"/><ellipse cx="59" cy="155" rx="6" ry="13" fill="${c('panturrilha')}"/>
-    <rect x="37" y="170" width="8" height="12" rx="4" fill="${N}"/><rect x="55" y="170" width="8" height="12" rx="4" fill="${N}"/>
-  </svg>`;
+  const M = estadoMusculos();
+  const { frente, costas } = corpoSvgs(id => `fill="${corSt(M[id].st)}"`, 'body');
   const lista = GRUPOS.map(([id, nome]) => {
     const x = M[id];
     const quando = x.dias == null ? 'sem registro' : x.dias === 0 ? 'hoje' : x.dias === 1 ? 'ontem' : 'há ' + x.dias + ' dias';
@@ -558,6 +564,13 @@ function notifHtml(){
   return h;
 }
 
+const ICONE_TREINO = {
+  bola: `<svg viewBox="0 0 120 120" class="ic-dia" role="img" aria-label="Dia de futsal"><circle cx="60" cy="60" r="44" fill="#EFEDE8"/><path d="M60 40l17 12-6 20H49l-6-20z" fill="#161618"/><path d="M60 16v24M77 52l25-6M71 72l14 22M49 72L35 94M43 52l-25-6" stroke="#161618" stroke-width="4" stroke-linecap="round"/><path d="M60 16a44 44 0 0 1 42 30M102 46a44 44 0 0 1-17 48M85 94a44 44 0 0 1-50 0M35 94a44 44 0 0 1-17-48M18 46a44 44 0 0 1 42-30" fill="none" stroke="#161618" stroke-width="2" opacity=".25"/><ellipse cx="60" cy="112" rx="30" ry="4" fill="#000" opacity=".35"/></svg>`,
+  cardio: `<svg viewBox="0 0 120 120" class="ic-dia" role="img" aria-label="Dia de cardio"><path d="M60 98S20 74 20 44a20 20 0 0 1 40-6 20 20 0 0 1 40 6c0 30-40 54-40 54z" fill="#D7191F"/><path d="M14 60h26l8-14 10 28 9-20 5 6h34" fill="none" stroke="#EFEDE8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  descanso: `<svg viewBox="0 0 120 120" class="ic-dia" role="img" aria-label="Dia de descanso"><path d="M78 22a40 40 0 1 0 22 52 32 32 0 0 1-22-52z" fill="#EFEDE8"/><circle cx="90" cy="30" r="3" fill="#F2C230"/><circle cx="100" cy="48" r="2" fill="#F2C230"/></svg>`,
+  halter: `<svg viewBox="0 0 120 120" class="ic-dia" role="img" aria-label="Treino"><rect x="30" y="56" width="60" height="8" rx="4" fill="#8E8C88"/><rect x="14" y="36" width="14" height="48" rx="4" fill="#D7191F"/><rect x="92" y="36" width="14" height="48" rx="4" fill="#D7191F"/></svg>`
+};
+
 function renderHoje(){
   const d = parse(cur), i = idxOf(d), isToday = cur === hoje();
   const L = dia(cur), ti = tIdx(cur), trocado = ti !== i;
@@ -593,33 +606,46 @@ function renderHoje(){
   let h = `<header class="top"><div class="tl"><span class="dt">${dataTxt}${isToday ? '' : ' <button class="lnk" data-act="dtoday">voltar pra hoje</button>'}</span><span class="hi">${saud}, ${NOME}</span></div>${streak ? `<span class="streak" title="Dias seguidos com treino"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c2 3 5 5 5 9a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-8z"/></svg><b>${streak}</b> ${streak === 1 ? 'dia' : 'dias'}</span>` : ''}</header>`;
   h += `<nav class="week" aria-label="Dias da semana">${wk}</nav>`;
 
-  // ---- a barra: cada exercício feito carrega um par de anilhas ----
+  // ---- o boneco do treino: músculos do dia acendem conforme os exercícios ficam prontos ----
   const nome = t.nome || 'Descanso';
-  const ANIL = [
-    { kg:25, cor:'var(--p25)', w:15, h:92 }, { kg:20, cor:'var(--p20)', w:13, h:92 }, { kg:15, cor:'var(--p15)', w:11, h:92 },
-    { kg:10, cor:'var(--p10)', w:9, h:92 }, { kg:5, cor:'var(--p5)', w:7, h:58 }, { kg:2.5, cor:'var(--p25)', w:6, h:44 }
-  ];
-  const slots = t.itens.length ? t.itens.map((_, k) => ANIL[k % ANIL.length]) : [];
-  const carga = 20 + slots.slice(0, exOk).reduce((a, p) => a + p.kg * 2, 0);
-  const prevLoad = barraAnt[cur], novo = prevLoad != null && exOk > prevLoad ? exOk - 1 : -1;
-  barraAnt[cur] = exOk;
-  const W = 340, cy = 58, inL = 112, inR = 228;
-  let svg = `<rect x="${inL}" y="${cy-3}" width="${inR-inL}" height="6" rx="3" class="shaft"/><rect x="146" y="${cy-3}" width="48" height="6" class="knurl"/>`;
-  svg += `<rect x="${inL-6}" y="${cy-11}" width="6" height="22" rx="2" class="collar"/><rect x="${inR}" y="${cy-11}" width="6" height="22" rx="2" class="collar"/>`;
-  svg += `<rect x="14" y="${cy-6}" width="${inL-6-14}" height="12" rx="3" class="sleeve"/><rect x="${inR+6}" y="${cy-6}" width="${W-14-inR-6}" height="12" rx="3" class="sleeve"/>`;
-  let xl = inL - 6, xr = inR + 6;
-  slots.forEach((p, k) => {
-    xl -= p.w + 2; const yy = cy - p.h / 2;
-    const on = k < exOk, cls = on ? 'pl on' + (k === novo ? ' drop' : '') : 'pl off';
-    svg += `<rect x="${xl}" y="${yy}" width="${p.w}" height="${p.h}" rx="3" class="${cls} l" style="${on ? 'fill:' + p.cor : ''}"/>`;
-    svg += `<rect x="${xr + 2}" y="${yy}" width="${p.w}" height="${p.h}" rx="3" class="${cls} r" style="${on ? 'fill:' + p.cor : ''}"/>`;
-    xr += p.w + 2;
+  const alvo = {};
+  t.itens.forEach(e => {
+    const r = L.treino[e.id], feito = r && r.series.length && r.series.every(s => s.ok);
+    const parcial = r ? r.series.filter(s => s.ok).length / Math.max(1, r.series.length) : 0;
+    musculosDe(e.nome).forEach(g => { const x = alvo[g] = alvo[g] || { tot:0, ok:0, prog:0 }; x.tot++; if (feito) x.ok++; x.prog += feito ? 1 : parcial; });
   });
-  const barraSvg = t.itens.length ? `<svg class="barra" viewBox="0 0 ${W} 116" role="img" aria-label="${exOk} de ${t.itens.length} exercícios feitos">${svg}</svg>` : '';
+  const NOMEG = Object.fromEntries(GRUPOS);
+  const prevLoad = barraAnt[cur], subiu = prevLoad != null && exOk > prevLoad;
+  barraAnt[cur] = exOk;
+  const pinta = id => {
+    const x = alvo[id];
+    if (!x) return 'fill="#2B2B30"';
+    const f = x.prog / x.tot;
+    return `fill="rgba(215,25,31,${(0.16 + 0.84 * f).toFixed(2)})" stroke="#FF6159" stroke-width="${f >= 1 ? 0 : 1.2}"`;
+  };
+  const NAO_CORPO = /futsal|futebol|cardio|corrida|bike|esteira|descanso/i;
+  let figura = '';
+  if (t.itens.length && Object.keys(alvo).length){
+    const { frente, costas } = corpoSvgs(pinta, 'fig');
+    const usaF = ['peito','ombro','biceps','abdomen','quad','adutor'].some(g => alvo[g]);
+    const usaC = ['costas','ombro','triceps','gluteo','posterior','panturrilha'].some(g => alvo[g]);
+    const figs = (usaF ? frente : '') + (usaC ? costas : '');
+    const lista = Object.keys(alvo).sort((a, b) => alvo[b].tot - alvo[a].tot).map(g => {
+      const x = alvo[g], f = Math.round(x.prog / x.tot * 100);
+      return `<li><span class="gn">${NOMEG[g] || g}</span><span class="gb"><i style="width:${f}%"></i></span><span class="gc">${x.ok}/${x.tot}</span></li>`;
+    }).join('');
+    figura = `<div class="treinofig ${subiu ? 'pulse' : ''}"><div class="figs ${usaF && usaC ? 'two' : 'one'}">${figs}</div><ul class="glist" aria-label="Músculos do treino">${lista}</ul></div>`;
+  } else if (t.itens.length){
+    figura = `<div class="treinofig solo">${ICONE_TREINO.halter}</div>`;
+  } else {
+    const txt = [t.cardio, ...(t.atividades||[])].filter(Boolean).join(' ');
+    const ic = /futsal|futebol/i.test(txt) ? ICONE_TREINO.bola : t.cardio ? ICONE_TREINO.cardio : ICONE_TREINO.descanso;
+    figura = `<div class="treinofig solo">${ic}</div>`;
+  }
   const fs = nome.length <= 8 ? 64 : nome.length <= 14 ? 50 : nome.length <= 20 ? 40 : 32;
   let barraTxt;
   if (!t.itens.length) barraTxt = `<p class="bsub">${esc([t.cardio, ...(t.atividades||[])].filter(Boolean).join(' e ') || 'Dia livre. Descanse ou faça um cardio leve.')}</p>`;
-  else barraTxt = `<div class="bfoot"><span><b>${exOk}</b> de ${t.itens.length} exercícios</span><span class="kgbar">${exOk ? 'Na barra: <b>' + fmtN(carga) + ' kg</b>' : 'Barra vazia: 20 kg'}</span></div>`;
+  else barraTxt = `<div class="bfoot"><span><b>${exOk}</b> de ${t.itens.length} exercícios</span></div>`;
 
   // ---- faixa de números: tempo, volume, água ----
   const durs = Object.keys(S).filter(k => k.startsWith('dia:') && k.slice(4) < cur && S[k].inicio && S[k].fim).map(k => S[k].fim - S[k].inicio).filter(v => v > 5*60000 && v < 4*3600000);
@@ -668,7 +694,7 @@ function renderHoje(){
   h += `<section class="hero3">
       <div class="hh"><div class="ht"><span class="hk">${isToday ? 'Treino de hoje' : 'Treino de ' + DIAS_F[i].toLowerCase()}${trocado ? ' (trocado)' : ''}</span><h1 class="hn" style="font-size:${fs}px">${esc(nome)}</h1></div>
         <button class="swap" data-act="tpick" aria-label="Trocar treino">${ICON.swap}<span>Trocar</span></button></div>
-      ${barraSvg}${barraTxt}
+      ${figura}${barraTxt}
       <div class="dayp" aria-label="Dia ${pct}% concluído"><span>Dia</span><span class="dpb"><i style="width:${pct}%"></i></span><b>${pct}%</b></div>
     </section>${strip}${next}${proxRow}`;
 
