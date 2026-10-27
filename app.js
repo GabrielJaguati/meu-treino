@@ -333,16 +333,16 @@ async function shareResumo(){
   const L = dia(cur), R = resumo(L, cur), W = 1080, H = 1350;
   try { await document.fonts.ready; } catch(e){}
   const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
-  const g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#E5202E'); g.addColorStop(1, '#FF4B2B');
+  const g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#FF2D3A'); g.addColorStop(1, '#D9141F');
   x.fillStyle = g; x.fillRect(0, 0, W, H);
   x.fillStyle = 'rgba(255,255,255,.10)'; x.beginPath(); x.arc(W - 60, 110, 340, 0, 7); x.fill();
   x.fillStyle = 'rgba(0,0,0,.12)'; x.beginPath(); x.arc(40, H - 20, 320, 0, 7); x.fill();
-  const HF = '"Big Shoulders Display","Arial Narrow",Impact,sans-serif', BF = 'Manrope,system-ui,-apple-system,sans-serif';
+  const HF = 'Anton,Impact,"Arial Narrow",sans-serif', BF = 'Inter,system-ui,-apple-system,sans-serif';
   const box = (bx, by, bw, bh) => { x.fillStyle = 'rgba(0,0,0,.20)'; x.beginPath(); if (x.roundRect) x.roundRect(bx, by, bw, bh, 34); else x.rect(bx, by, bw, bh); x.fill(); };
   x.fillStyle = '#fff'; x.textBaseline = 'alphabetic';
   x.globalAlpha = .85; x.font = `800 32px ${BF}`; x.fillText(('Meu Treino · ' + fmtLong(parse(cur))).toUpperCase(), 80, 140); x.globalAlpha = 1;
   // título
-  x.font = `800 150px ${HF}`;
+  x.font = `400 150px ${HF}`;
   const words = (L.tnome || 'Treino').toUpperCase().split(' '); const lines = []; let ln = '';
   words.forEach(w => { const t = ln ? ln + ' ' + w : w; if (x.measureText(t).width > W - 160 && ln){ lines.push(ln); ln = w; } else ln = t; });
   lines.push(ln);
@@ -353,8 +353,8 @@ async function shareResumo(){
   const bw = (W - 160 - 40) / 3;
   stats.forEach((s, k) => {
     const bx = 80 + k * (bw + 20); box(bx, y, bw, 200);
-    x.fillStyle = '#fff'; let fs = 92; x.font = `800 ${fs}px ${HF}`;
-    while (x.measureText(s[0]).width > bw - 50 && fs > 40){ fs -= 4; x.font = `800 ${fs}px ${HF}`; }
+    x.fillStyle = '#fff'; let fs = 88; x.font = `400 ${fs}px ${HF}`;
+    while (x.measureText(s[0]).width > bw - 50 && fs > 40){ fs -= 4; x.font = `400 ${fs}px ${HF}`; }
     x.fillText(s[0], bx + 28, y + 115); x.globalAlpha = .85; x.font = `800 26px ${BF}`; x.fillText(s[1], bx + 28, y + 165); x.globalAlpha = 1;
   });
   y += 260;
@@ -395,10 +395,93 @@ function renderHoje(){
   const pct = tot ? Math.round(ok / tot * 100) : 0;
   const meta = P().metaAgua || 3500;
 
-  let h = `<div class="dnav"><button class="wkb" data-act="dprev" aria-label="Dia anterior">${ICON.l}</button>
-    <div class="dl"><strong>${DIAS_F[i]}${isToday?' · hoje':''}</strong><span>${fmtLong(d)}</span>${isToday?'':'<button class="linkbtn sm" data-act="dtoday">Voltar pra hoje</button>'}</div>
-    <button class="wkb" data-act="dnext" aria-label="Próximo dia">${ICON.r}</button></div>`;
-  h += `<section class="hero"><div class="hl"><span class="eyebrow">${isToday ? 'Treino de hoje' : 'Treino de ' + DIAS_F[i].toLowerCase()}</span><h1>${esc(t.nome || 'Descanso')}</h1><button class="swap" data-act="tpick">${ICON.swap} ${trocado ? 'Treino de ' + DIAS_F[ti].toLowerCase() + ' · trocar' : 'Trocar treino'}</button></div>${ring(pct)}<div class="stats"><span><b>${exOk}/${t.itens.length}</b>exercícios</span><span><b>${fmtN((L.agua||0)/1000)} L</b>água</span><span><b>${refOk}/${P().refeicoes.length}</b>refeições</span></div></section>`;
+  // ---- cabeçalho, semana e painel em blocos ----
+  const NOME = 'Gabriel';
+  const hr = new Date().getHours();
+  const saud = hr < 12 ? 'Bom dia' : hr < 18 ? 'Boa tarde' : 'Boa noite';
+  const treinou = X => X && (X.cardio || Object.values(X.ativ||{}).some(Boolean) || Object.values(X.treino||{}).some(r => (r.series||[]).some(s => s.ok)));
+  let streak = 0, sd = hoje();
+  if (!treinou(S['dia:' + sd])) sd = addDays(sd, -1);
+  while (treinou(S['dia:' + sd])){ streak++; sd = addDays(sd, -1); }
+  const ini = addDays(cur, -i);
+  const LET = ['S','T','Q','Q','S','S','D'];
+  let wk = `<button class="wk-arrow" data-act="wprev" aria-label="Semana anterior">${ICON.l}</button>`;
+  for (let k = 0; k < 7; k++){
+    const ds = addDays(ini, k), on = ds === cur, td = ds === hoje(), dn = treinou(S['dia:' + ds]);
+    wk += `<button class="wk-day ${on?'on':''} ${td?'today':''}" data-act="goday" data-id="${ds}"><span>${LET[k]}</span><b>${pad2(parse(ds).getDate())}</b><i class="${dn?'dn':''}"></i></button>`;
+  }
+  wk += `<button class="wk-arrow" data-act="wnext" aria-label="Próxima semana">${ICON.r}</button>`;
+
+  let h = `<header class="top"><div class="tl"><span class="eyebrow">${DIAS_F[i].toUpperCase()} · ${pad2(d.getDate())} ${MESES[d.getMonth()].slice(0,3).toUpperCase()}${isToday ? '' : ' · <button class="lnk" data-act="dtoday">VOLTAR PRA HOJE</button>'}</span><span class="hi">${saud}, ${NOME}</span></div>${streak ? `<span class="streak"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c2 3 5 5 5 9a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-8z"/></svg>${streak} ${streak === 1 ? 'DIA' : 'DIAS'}</span>` : ''}</header>`;
+  h += `<nav class="week" aria-label="Dias da semana">${wk}</nav>`;
+
+  // dados dos blocos
+  const nome = t.nome || 'Descanso';
+  const fs = nome.length <= 7 ? 70 : nome.length <= 12 ? 54 : nome.length <= 18 ? 42 : 34;
+  const durs = Object.keys(S).filter(k => k.startsWith('dia:') && k.slice(4) < cur && S[k].inicio && S[k].fim).map(k => S[k].fim - S[k].inicio).filter(v => v > 5*60000 && v < 4*3600000);
+  const media = durs.length ? durs.reduce((a,b) => a + b, 0) / durs.length : null;
+  let tVal = '--:--', tSub = media ? 'MÉDIA ' + fmtDurTxt(media).toUpperCase() : 'CRONÔMETRO', tBtn = '';
+  if (L.inicio && !L.fim){ tVal = `<span id="tdur">${fmtDur(Date.now() - L.inicio)}</span>`; tBtn = '<button class="tile-btn" data-act="tfim">FINALIZAR</button>'; }
+  else if (L.inicio && L.fim){ tVal = fmtDur(L.fim - L.inicio); tSub = 'FINALIZADO'; tBtn = '<button class="tile-btn ghost" data-act="tret">RETOMAR</button>'; }
+  else if (t.itens.length || t.cardio) tBtn = '<button class="tile-btn" data-act="tstart">▶ INICIAR</button>';
+  const volHoje = volDia(L);
+  const vols = Object.keys(S).filter(k => k.startsWith('dia:') && k.slice(4) < cur).sort().map(k => volDia(S[k])).filter(v => v > 0).slice(-4).concat([volHoje]);
+  const vMax = Math.max(1, ...vols);
+  const bars = vols.map((v,k) => `<span style="height:${Math.max(8, Math.round(v / vMax * 100))}%" class="${k === vols.length - 1 ? 'cur' : ''}"></span>`).join('');
+  const atual = t.itens.findIndex(e => { const r = L.treino[e.id]; return !(r && r.series.length && r.series.every(s => s.ok)); });
+  let exTile;
+  if (!t.itens.length) exTile = `<div class="tile wide cur-ex none"><span class="num">—</span><div class="cx"><b>${t.cardio || (t.atividades||[]).length ? 'DIA DE CARDIO E JOGO' : 'DIA DE DESCANSO'}</b><span class="lbl">${esc([t.cardio, ...(t.atividades||[])].filter(Boolean).join(' · ') || 'Sem exercícios no plano')}</span></div></div>`;
+  else if (atual < 0) exTile = `<div class="tile wide cur-ex okk"><span class="num">✓</span><div class="cx"><b>TREINO COMPLETO</b><span class="lbl">${t.itens.length} EXERCÍCIOS FEITOS</span></div>${L.fim ? '' : '<button class="go" data-act="tfim" aria-label="Finalizar treino">' + ICON.r + '</button>'}</div>`;
+  else {
+    const e = t.itens[atual], r = getEx(L, e), nOk = r.series.filter(s => s.ok).length, last = lastSets(e, cur);
+    const kg = (r.series.find(s => !s.ok && s.kg) || {}).kg || (last && last[nOk] && last[nOk].kg) || '';
+    exTile = `<div class="tile wide cur-ex"><span class="num">${pad2(atual + 1)}</span><div class="cx"><div class="cxh"><b>${esc(e.nome.toUpperCase())}</b><span class="lbl">${nOk}/${r.series.length}${kg ? ' · ' + esc(kg) + ' KG' : ''}</span></div><div class="segs" style="grid-template-columns:repeat(${r.series.length},minmax(0,1fr))">${r.series.map(s => `<i class="${s.ok?'on':''}"></i>`).join('')}</div></div><button class="go" data-act="goex" data-ex="${e.id}" aria-label="Abrir ${esc(e.nome)}">${ICON.r}</button></div>`;
+  }
+  const aguaPct = Math.min(100, Math.round((L.agua||0) / meta * 100));
+  const M = (S.medidas||[]).filter(m => m.peso != null).sort((a,b) => a.data < b.data ? -1 : 1);
+  const pesoAt = M.length ? M[M.length-1].peso : null;
+  let spark = '';
+  if (M.length > 1){
+    const pts = M.slice(-8), mn = Math.min(...pts.map(m => m.peso)), mx = Math.max(...pts.map(m => m.peso)), rg = (mx - mn) || 1;
+    const sx = k => (k * 130 / (pts.length - 1)).toFixed(1), sy = v => (3 + (mx - v) / rg * 16).toFixed(1);
+    const desce = pts[pts.length-1].peso <= pts[0].peso;
+    spark = `<svg class="spark" viewBox="0 0 130 22" aria-hidden="true"><polyline points="${pts.map((m,k) => sx(k) + ',' + sy(m.peso)).join(' ')}" style="stroke:${desce ? 'var(--ok)' : 'var(--warn)'}"/></svg>`;
+  }
+  const supOkN = sup.filter(s => L.supl[s.id]).length;
+  const prs = recordes(L, cur);
+  const agora = new Date(), hhmm = pad2(agora.getHours()) + ':' + pad2(agora.getMinutes());
+  const prox = ocorrencias(hoje(), addDays(hoje(), 14)).find(o => o.data > hoje() || !o.e.hora || o.e.hora >= hhmm);
+  let proxTile = '';
+  if (prox){
+    let quando;
+    if (prox.e.hora){
+      const p = prox.e.hora.split(':').map(Number), dt = parse(prox.data); dt.setHours(p[0], p[1]);
+      const hrs = (dt - agora) / 3600000;
+      quando = hrs < 1 ? 'AGORA' : hrs < 24 ? Math.round(hrs) + 'H' : Math.round(hrs / 24) + (Math.round(hrs/24) === 1 ? ' DIA' : ' DIAS');
+    } else quando = prox.data === hoje() ? 'HOJE' : Math.round((parse(prox.data) - parse(hoje())) / 864e5) + 'D';
+    const dl = prox.data === hoje() ? 'Hoje' : prox.data === addDays(hoje(), 1) ? 'Amanhã' : DIAS[idxOf(parse(prox.data))] + ' ' + fmtD(prox.data);
+    proxTile = `<button class="tile wide next t-${prox.e.tipo}" data-act="tabag"><span class="badge">${(TIPOS[prox.e.tipo]||'Outro').toUpperCase()}</span><span class="cx"><b>${esc(prox.e.titulo || TIPOS[prox.e.tipo])}</b><span class="lbl2">${dl}${prox.e.hora ? ' · ' + esc(prox.e.hora) : ''}${prox.e.local ? ' · ' + esc(prox.e.local) : ''}</span></span><span class="when">${quando}</span></button>`;
+  }
+
+  h += `<section class="bento">
+    <div class="tile hero2">
+      <div class="hl"><span class="eyebrow">${isToday ? 'TREINO DE HOJE' : 'TREINO DE ' + DIAS_F[i].toUpperCase()}</span><span class="big" style="font-size:${fs}px">${esc(nome.toUpperCase())}</span>
+        <span class="sub2">${t.itens.length ? exOk + ' DE ' + t.itens.length + ' EXERCÍCIOS' : esc((t.cardio || '').toUpperCase())}</span>
+        <button class="swap" data-act="tpick">${ICON.swap} ${trocado ? 'DE ' + DIAS_F[ti].toUpperCase() + ' · TROCAR' : 'TROCAR TREINO'}</button></div>
+      <div class="ringbox"><svg class="ring" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="34" class="rb"/><circle cx="42" cy="42" r="34" class="rf" stroke-dasharray="213.6" stroke-dashoffset="${(213.6 * (1 - pct / 100)).toFixed(1)}"/></svg><span class="rp"><b>${pct}%</b><small>DO DIA</small></span></div>
+    </div>
+    <div class="tile"><div class="th"><span class="lbl">TEMPO</span>${L.inicio && !L.fim ? '<span class="live"></span>' : ''}</div><span class="val">${tVal}</span><span class="lbl">${tSub}</span>${tBtn}</div>
+    <div class="tile"><span class="lbl">VOLUME</span><span class="val">${Math.round(volHoje).toLocaleString('pt-BR')}</span><div class="bars">${bars}</div><span class="lbl">KG HOJE</span></div>
+    ${exTile}
+    <div class="tile water2"><div class="tank"><span style="height:${aguaPct}%"></span></div><div class="wc"><span class="lbl">ÁGUA</span><span class="val sm">${fmtN((L.agua||0)/1000)} L</span><span class="lbl">META ${fmtN(meta/1000)} L</span><div class="wbtn"><button data-act="agua" data-v="250">+250</button><button data-act="agua" data-v="500">+500</button><button data-act="agua" data-v="-250" aria-label="Tirar 250 ml">−</button></div></div></div>
+    <button class="tile" data-act="tabprog"><span class="lbl">PESO</span><span class="val sm">${pesoAt != null ? fmtN(pesoAt) : '–'}</span>${spark || '<span class="lbl">REGISTRAR</span>'}</button>
+    <div class="trio">
+      <div class="mini-t"><b>${refOk}/${P().refeicoes.length}</b><span>REFEIÇÕES</span></div>
+      <div class="mini-t"><b>${supOkN}/${sup.length}</b><span>SUPLEMENTOS</span></div>
+      <div class="mini-t"><b class="${prs.length ? 'gold' : ''}">${prs.length} PR</b><span>${prs.length ? esc(prs[0].nome.toUpperCase()) : 'RECORDES'}</span></div>
+    </div>
+    ${proxTile}
+  </section>`;
 
   if (pickOpen){
     let pk = '<p class="tip">Escolha qual treino do plano você vai fazer hoje. O histórico e as cargas acompanham o treino escolhido.</p>';
@@ -417,7 +500,6 @@ function renderHoje(){
   if (evs.length) h += panel('Compromissos', IC.agenda, evs.map(o => evtHtml(o, false)).join(''));
 
   let b = '';
-  if (t.itens.length || t.cardio) b += timerBar(L);
   if (P().obs && t.itens.length) b += `<p class="tip">${esc(P().obs)}</p>`;
   if (!t.itens.length && !t.cardio && !(t.atividades||[]).length) b += '<p class="muted">Nada planejado pra hoje. Dá pra editar na aba Plano.</p>';
   t.itens.forEach(e => {
@@ -449,10 +531,6 @@ function renderHoje(){
   b = sup.length ? sup.map(s => checkRow('supl', s.id, esc(s.nome) + (s.dose ? ' · ' + esc(s.dose) : ''), !!L.supl[s.id], esc(s.hora||''))).join('') : '<p class="muted">Nenhum pra hoje.</p>';
   h += panel('Suplementos', IC.supl, b, sup.length ? `<span class="pc">${supOk}/${sup.length}</span>` : '');
 
-  b = `<div class="water"><span class="wn">${fmtN((L.agua||0)/1000)}<small> L</small></span><span class="wg">meta ${fmtN(meta/1000)} L</span></div>
-    <div class="prog"><div class="bar"><i style="width:${Math.min(100, Math.round((L.agua||0)/meta*100))}%"></i></div></div>
-    <div class="wq"><button data-act="agua" data-v="250">+250</button><button data-act="agua" data-v="500">+500</button><button data-act="agua" data-v="750">+750</button><button data-act="agua" data-v="-250">−250</button></div>`;
-  h += panel('Água', IC.agua, b);
 
   h += panel('Anotações do dia', IC.nota, `<div class="f" style="margin-top:0"><textarea rows="3" data-f="nota" placeholder="Dor na pubalgia, sono, disposição…">${esc(L.nota||'')}</textarea></div>`);
   VIEW.innerHTML = h;
@@ -676,6 +754,11 @@ VIEW.addEventListener('click', async e => {
     case 'tret': delete L.fim; touch(cur); keepScroll(render); return;
     case 'tshare': shareResumo(); return;
     case 'jsens': case 'jdor': { L.jogo = L.jogo || {}; const j = L.jogo[id] = L.jogo[id] || {}; const v = parseInt(b.dataset.v); const f = a === 'jsens' ? 'sens' : 'dor'; j[f] = j[f] === v ? null : v; touch(cur); keepScroll(render); return; }
+    case 'wprev': cur = addDays(cur, -7); pickOpen = false; render(); return;
+    case 'wnext': cur = addDays(cur, 7); pickOpen = false; render(); return;
+    case 'goex': { openEx[exId] = true; render(); const el = document.querySelector('details.ex[data-ex="' + exId + '"]'); if (el) el.scrollIntoView({ behavior:'smooth', block:'start' }); return; }
+    case 'tabag': tab = 'agenda'; render(); window.scrollTo(0,0); return;
+    case 'tabprog': tab = 'prog'; render(); window.scrollTo(0,0); return;
     case 'tpick': pickOpen = !pickOpen; keepScroll(render); return;
     case 'tclose': pickOpen = false; keepScroll(render); return;
     case 'tset': { const k = parseInt(id); if (k === idxOf(parse(cur))) delete L.treinoDia; else L.treinoDia = k; pickOpen = false; touch(cur); render(); window.scrollTo(0,0); return; }
