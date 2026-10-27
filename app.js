@@ -82,6 +82,7 @@ let sb = null, user = null, S = {};
 let tab = 'hoje', cur = hoje(), planDay = idxOf(new Date()), planSeg = 'treino', progEx = '';
 const openEx = {};
 let pickOpen = false;
+let pendRender = false;
 const P = () => S.plano;
 
 function dia(date){
@@ -471,7 +472,7 @@ function renderHoje(){
       <div class="ringbox"><svg class="ring" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="34" class="rb"/><circle cx="42" cy="42" r="34" class="rf" stroke-dasharray="213.6" stroke-dashoffset="${(213.6 * (1 - pct / 100)).toFixed(1)}"/></svg><span class="rp"><b>${pct}%</b><small>DO DIA</small></span></div>
     </div>
     <div class="tile"><div class="th"><span class="lbl">TEMPO</span>${L.inicio && !L.fim ? '<span class="live"></span>' : ''}</div><span class="val">${tVal}</span><span class="lbl">${tSub}</span>${tBtn}</div>
-    <div class="tile"><span class="lbl">VOLUME</span><span class="val">${Math.round(volHoje).toLocaleString('pt-BR')}</span><div class="bars">${bars}</div><span class="lbl">KG HOJE</span></div>
+    <div class="tile"><span class="lbl">VOLUME</span><span class="val" id="vvol">${Math.round(volHoje).toLocaleString('pt-BR')}</span><div class="bars">${bars}</div><span class="lbl">KG HOJE</span></div>
     ${exTile}
     <div class="tile water2"><div class="tank"><span style="height:${aguaPct}%"></span></div><div class="wc"><span class="lbl">ÁGUA</span><span class="val sm">${fmtN((L.agua||0)/1000)} L</span><span class="lbl">META ${fmtN(meta/1000)} L</span><div class="wbtn"><button data-act="agua" data-v="250">+250</button><button data-act="agua" data-v="500">+500</button><button data-act="agua" data-v="-250" aria-label="Tirar 250 ml">−</button></div></div></div>
     <button class="tile" data-act="tabprog"><span class="lbl">PESO</span><span class="val sm">${pesoAt != null ? fmtN(pesoAt) : '–'}</span>${spark || '<span class="lbl">REGISTRAR</span>'}</button>
@@ -846,12 +847,21 @@ VIEW.addEventListener('click', async e => {
   }
 });
 
+// quando sai dos campos de carga/reps, redesenha os blocos com os valores novos
+VIEW.addEventListener('focusout', () => {
+  setTimeout(() => {
+    if (pendRender && tab === 'hoje' && !(document.activeElement && document.activeElement.matches('input,textarea'))){ pendRender = false; keepScroll(render); }
+  }, 50);
+});
+
 VIEW.addEventListener('change', e => {
   const el = e.target, f = el.dataset.f, pf = el.dataset.pf;
   if (f){
     if (f === 'kg' || f === 'reps'){
       const exo = treinoDo(cur).itens.find(x => x.id === el.dataset.ex);
       const r = getEx(dia(cur), exo); r.nome = exo.nome; r.series[parseInt(el.dataset.i)][f] = el.value.trim(); touch(cur);
+      const vv = $('#vvol'); if (vv) vv.textContent = Math.round(volDia(dia(cur))).toLocaleString('pt-BR');
+      pendRender = true;
     } else if (f === 'nota'){ dia(cur).nota = el.value; touch(cur); }
     else if (f === 'jmin' || f === 'jgol'){ const L = dia(cur); L.jogo = L.jogo || {}; const j = L.jogo[el.dataset.id] = L.jogo[el.dataset.id] || {}; j[f === 'jmin' ? 'min' : 'gols'] = num(el.value); touch(cur); }
     else if (f === 'progex'){ progEx = el.value; keepScroll(render); }
