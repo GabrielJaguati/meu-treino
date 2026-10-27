@@ -101,7 +101,7 @@ function touch(date){
 }
 function hasContent(L){
   if (!L) return false;
-  if (L.cardio || L.agua || L.nota) return true;
+  if (L.cardio || L.agua || L.nota || L.inicio) return true;
   if (Object.values(L.ativ||{}).some(Boolean) || Object.values(L.ref||{}).some(Boolean) || Object.values(L.supl||{}).some(Boolean)) return true;
   return Object.values(L.treino||{}).some(r => (r.series||[]).some(s => s.ok || s.kg || s.reps));
 }
@@ -268,13 +268,119 @@ const IC = {
   supl:'<svg viewBox="0 0 24 24"><rect x="3" y="8.5" width="18" height="7" rx="3.5" transform="rotate(-45 12 12)"/><path d="M9.6 9.6l4.8 4.8"/></svg>',
   agua:'<svg viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg>',
   nota:'<svg viewBox="0 0 24 24"><path d="M5 4h10l4 4v12H5z"/><path d="M9 12h6M9 16h4"/></svg>',
-  agenda:'<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>'
+  agenda:'<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>',
+  trofeu:'<svg viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 20h8M10 17h4"/></svg>'
 };
 const panel = (title, ico, body, extra) => `<section class="panel"><header class="ph"><span class="pi">${ico}</span><h2>${title}</h2>${extra||''}</header>${body}</section>`;
 function ring(pct){
   const r = 34, c = 2 * Math.PI * r, off = c * (1 - pct / 100);
   return `<div class="ringbox"><svg class="ring" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="${r}" class="rb"/><circle cx="42" cy="42" r="${r}" class="rf" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"/></svg><span class="rp">${pct}<small>%</small></span></div>`;
 }
+/* ---------- treino: tempo, recordes, resumo ---------- */
+let tick = null;
+const fmtDur = ms => { const s = Math.max(0, Math.floor(ms/1000)), h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = s%60; return (h ? h + ':' + pad2(m) : m) + ':' + pad2(x); };
+const fmtDurTxt = ms => { const m = Math.round(ms/60000); return m >= 60 ? Math.floor(m/60) + 'h' + pad2(m%60) : m + ' min'; };
+const fmtKg = v => Math.round(v).toLocaleString('pt-BR') + ' kg';
+const SENS = ['😫','😕','😐','🙂','🔥'];
+function okSets(r){ return (r.series||[]).filter(s => s.ok && num(s.kg) != null && num(s.reps) != null); }
+function volDia(L){ let v = 0; Object.values(L.treino||{}).forEach(r => okSets(r).forEach(s => { v += num(s.kg) * num(s.reps); })); return v; }
+function bestKg(nome, before){
+  let b = null;
+  Object.keys(S).forEach(k => {
+    if (!k.startsWith('dia:') || k.slice(4) >= before) return;
+    Object.values(S[k].treino||{}).forEach(r => {
+      if (r.nome !== nome) return;
+      (r.series||[]).forEach(s => { if (!s.ok) return; const v = num(s.kg); if (v != null && (b == null || v > b)) b = v; });
+    });
+  });
+  return b;
+}
+function maxOk(r){ let m = null; (r.series||[]).forEach(s => { if (!s.ok) return; const v = num(s.kg); if (v != null && (m == null || v > m)) m = v; }); return m; }
+function recordes(L, date){
+  const out = [];
+  Object.values(L.treino||{}).forEach(r => { const mx = maxOk(r); if (mx == null) return; const prev = bestKg(r.nome, date); if (prev != null && mx > prev) out.push({ nome:r.nome, kg:mx, prev }); });
+  return out;
+}
+function sessaoAnterior(L, date){
+  const ks = Object.keys(S).filter(k => k.startsWith('dia:') && k.slice(4) < date && S[k].tnome === L.tnome).sort().reverse();
+  for (const k of ks){ const v = volDia(S[k]); if (v > 0) return { data:k.slice(4), vol:v }; }
+  return null;
+}
+function resumo(L, date){
+  const series = Object.values(L.treino||{}).reduce((a,r) => a + (r.series||[]).filter(s => s.ok).length, 0);
+  return { dur: L.inicio ? (L.fim || Date.now()) - L.inicio : null, vol: volDia(L), series, ant: sessaoAnterior(L, date), prs: recordes(L, date) };
+}
+function timerBar(L){
+  if (!L.inicio) return '<button class="btn primary tstart" data-act="tstart">▶&nbsp; Iniciar treino</button>';
+  if (!L.fim) return `<div class="timer"><span class="tlb"><span class="live"></span>Treinando há</span><span class="tv" id="tdur">${fmtDur(Date.now()-L.inicio)}</span><button class="tbtn" data-act="tfim">Finalizar</button></div>`;
+  return `<div class="timer done"><span class="tlb">Treino finalizado</span><span class="tv">${fmtDur(L.fim-L.inicio)}</span><button class="tbtn ghost" data-act="tret">Retomar</button></div>`;
+}
+function resumoHtml(L, date){
+  const R = resumo(L, date);
+  let h = `<div class="sum"><div><b>${R.dur != null ? fmtDurTxt(R.dur) : '–'}</b><span>duração</span></div><div><b>${fmtKg(R.vol)}</b><span>volume</span></div><div><b>${R.series}</b><span>séries</span></div></div>`;
+  if (R.ant && R.vol){ const p = Math.round((R.vol - R.ant.vol) / R.ant.vol * 100); h += `<p class="cmp ${p >= 0 ? 'up' : 'down'}">${p >= 0 ? '▲' : '▼'} ${Math.abs(p)}% de volume em relação a ${fmtD(R.ant.data)}</p>`; }
+  if (R.prs.length) h += '<p class="cap" style="margin-top:14px">Recordes de hoje</p>' + R.prs.map(p => `<div class="pr"><span>🏆</span><span class="lm"><b>${esc(p.nome)}</b><span class="rd">${fmtN(p.kg)} kg · antes ${fmtN(p.prev)} kg</span></span></div>`).join('');
+  h += '<button class="btn primary" data-act="tshare">Salvar / compartilhar imagem</button>';
+  return panel('Resumo do treino', IC.trofeu, h);
+}
+function toast(msg){
+  let el = $('#toast');
+  if (!el){ el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; el.setAttribute('role','status'); document.body.appendChild(el); }
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 2800);
+}
+async function shareResumo(){
+  const L = dia(cur), R = resumo(L, cur), W = 1080, H = 1350;
+  try { await document.fonts.ready; } catch(e){}
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#E5202E'); g.addColorStop(1, '#FF4B2B');
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+  x.fillStyle = 'rgba(255,255,255,.10)'; x.beginPath(); x.arc(W - 60, 110, 340, 0, 7); x.fill();
+  x.fillStyle = 'rgba(0,0,0,.12)'; x.beginPath(); x.arc(40, H - 20, 320, 0, 7); x.fill();
+  const HF = '"Big Shoulders Display","Arial Narrow",Impact,sans-serif', BF = 'Manrope,system-ui,-apple-system,sans-serif';
+  const box = (bx, by, bw, bh) => { x.fillStyle = 'rgba(0,0,0,.20)'; x.beginPath(); if (x.roundRect) x.roundRect(bx, by, bw, bh, 34); else x.rect(bx, by, bw, bh); x.fill(); };
+  x.fillStyle = '#fff'; x.textBaseline = 'alphabetic';
+  x.globalAlpha = .85; x.font = `800 32px ${BF}`; x.fillText(('Meu Treino · ' + fmtLong(parse(cur))).toUpperCase(), 80, 140); x.globalAlpha = 1;
+  // título
+  x.font = `800 150px ${HF}`;
+  const words = (L.tnome || 'Treino').toUpperCase().split(' '); const lines = []; let ln = '';
+  words.forEach(w => { const t = ln ? ln + ' ' + w : w; if (x.measureText(t).width > W - 160 && ln){ lines.push(ln); ln = w; } else ln = t; });
+  lines.push(ln);
+  let y = 300; lines.slice(0,3).forEach(l => { x.fillText(l, 80, y); y += 140; });
+  // estatísticas
+  y += 30;
+  const stats = [[R.dur != null ? fmtDurTxt(R.dur) : '–', 'DURAÇÃO'], [fmtKg(R.vol), 'VOLUME'], [String(R.series), 'SÉRIES']];
+  const bw = (W - 160 - 40) / 3;
+  stats.forEach((s, k) => {
+    const bx = 80 + k * (bw + 20); box(bx, y, bw, 200);
+    x.fillStyle = '#fff'; let fs = 92; x.font = `800 ${fs}px ${HF}`;
+    while (x.measureText(s[0]).width > bw - 50 && fs > 40){ fs -= 4; x.font = `800 ${fs}px ${HF}`; }
+    x.fillText(s[0], bx + 28, y + 115); x.globalAlpha = .85; x.font = `800 26px ${BF}`; x.fillText(s[1], bx + 28, y + 165); x.globalAlpha = 1;
+  });
+  y += 260;
+  if (R.ant && R.vol){
+    const p = Math.round((R.vol - R.ant.vol) / R.ant.vol * 100);
+    x.font = `800 38px ${BF}`; x.fillText(`${p >= 0 ? '▲' : '▼'} ${Math.abs(p)}% de volume vs ${fmtD(R.ant.data)}`, 80, y); y += 80;
+  }
+  if (R.prs.length){
+    x.font = `800 30px ${BF}`; x.globalAlpha = .85; x.fillText('RECORDES DE HOJE', 80, y); x.globalAlpha = 1; y += 60;
+    R.prs.slice(0,4).forEach(p => { x.font = `700 40px ${BF}`; x.fillText(`🏆 ${p.nome} · ${fmtN(p.kg)} kg`, 80, y); y += 62; });
+  }
+  x.globalAlpha = .7; x.font = `800 28px ${BF}`; x.fillText('MEU TREINO', 80, H - 80); x.globalAlpha = 1;
+  const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+  const file = new File([blob], 'treino-' + cur + '.png', { type:'image/png' });
+  if (navigator.canShare && navigator.canShare({ files:[file] })){
+    try { await navigator.share({ files:[file], title:'Meu treino' }); return; } catch(e){ if (e && e.name === 'AbortError') return; }
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+}
+function jogoHtml(L, a){
+  const j = (L.jogo||{})[a] || {}, id = esc(a);
+  return `<div class="jogo"><div class="fields flat"><label>Minutos jogados<input inputmode="numeric" data-f="jmin" data-id="${id}" value="${esc(j.min ?? '')}"></label><label>Gols<input inputmode="numeric" data-f="jgol" data-id="${id}" value="${esc(j.gols ?? '')}"></label></div>
+    <p class="fl">Como se sentiu</p><div class="scale s5">${SENS.map((e,n) => `<button class="chip ${j.sens===n+1?'on':''}" data-act="jsens" data-id="${id}" data-v="${n+1}" aria-label="Nota ${n+1}">${e}</button>`).join('')}</div>
+    <p class="fl">Dor da pubalgia depois (0 a 10)</p><div class="scale s11">${Array.from({length:11},(_,n) => `<button class="chip dor${n>=7?' hi':n>=4?' md':''} ${j.dor===n?'on':''}" data-act="jdor" data-id="${id}" data-v="${n}">${n}</button>`).join('')}</div></div>`;
+}
+
 function renderHoje(){
   const d = parse(cur), i = idxOf(d), isToday = cur === hoje();
   const L = dia(cur), ti = tIdx(cur), trocado = ti !== i;
@@ -305,17 +411,21 @@ function renderHoje(){
     h += panel('Trocar treino', ICON.swap, pk);
   }
 
+  if (L.fim) h += resumoHtml(L, cur);
+
   const evs = ocorrencias(cur, cur);
   if (evs.length) h += panel('Compromissos', IC.agenda, evs.map(o => evtHtml(o, false)).join(''));
 
   let b = '';
+  if (t.itens.length || t.cardio) b += timerBar(L);
   if (P().obs && t.itens.length) b += `<p class="tip">${esc(P().obs)}</p>`;
   if (!t.itens.length && !t.cardio && !(t.atividades||[]).length) b += '<p class="muted">Nada planejado pra hoje. Dá pra editar na aba Plano.</p>';
   t.itens.forEach(e => {
     const r = getEx(L, e), last = lastSets(e, cur);
     const nOk = r.series.filter(s => s.ok).length, done = r.series.length && nOk === r.series.length;
+    const mx = maxOk(r), prevB = mx != null ? bestKg(e.nome, cur) : null, isPR = prevB != null && mx > prevB;
     const lastTxt = last ? last.filter(s => s.kg || s.reps).map(s => (s.kg||'–') + '×' + (s.reps||'–')).join(' · ') : '';
-    b += `<details class="ex ${done?'done':''}" data-ex="${e.id}" ${openEx[e.id]?'open':''}><summary><span class="dot"></span><span class="exm"><span class="rn">${esc(e.nome)}</span><span class="rd">${esc(e.series)}×${esc(e.reps)}${e.obs?' · '+esc(e.obs):''}</span></span><span class="cnt">${nOk}/${r.series.length}</span></summary><div class="sets">`;
+    b += `<details class="ex ${done?'done':''}" data-ex="${e.id}" ${openEx[e.id]?'open':''}><summary><span class="dot"></span><span class="exm"><span class="rn">${esc(e.nome)}${isPR ? ' <span class="prb">🏆 recorde</span>' : ''}</span><span class="rd">${esc(e.series)}×${esc(e.reps)}${e.obs?' · '+esc(e.obs):''}</span></span><span class="cnt">${nOk}/${r.series.length}</span></summary><div class="sets">`;
     if (lastTxt) b += `<p class="cap">Última vez (kg×reps): ${esc(lastTxt)}</p>`;
     b += '<div class="sh"><span>#</span><span>kg</span><span>reps</span><span></span><span></span></div>';
     r.series.forEach((s,k) => {
@@ -329,7 +439,7 @@ function renderHoje(){
     b += `<button class="add sm" data-act="addset" data-ex="${e.id}">+ série</button></div></details>`;
   });
   if (t.cardio) b += checkRow('cardio', '', esc(t.cardio), !!L.cardio);
-  (t.atividades||[]).forEach(a => { b += checkRow('ativ', a, esc(a), !!L.ativ[a]); });
+  (t.atividades||[]).forEach(a => { b += checkRow('ativ', a, esc(a), !!L.ativ[a]); if (L.ativ[a]) b += jogoHtml(L, a); });
   h += panel('Treino', IC.treino, b, t.itens.length ? `<span class="pc">${exOk}/${t.itens.length}</span>` : '');
 
   b = P().refeicoes.map(m => checkRow('ref', m.id, (m.hora ? esc(m.hora)+' · ' : '') + esc(m.nome), !!L.ref[m.id], esc((m.itens||[]).join(' · ')))).join('');
@@ -346,6 +456,8 @@ function renderHoje(){
 
   h += panel('Anotações do dia', IC.nota, `<div class="f" style="margin-top:0"><textarea rows="3" data-f="nota" placeholder="Dor na pubalgia, sono, disposição…">${esc(L.nota||'')}</textarea></div>`);
   VIEW.innerHTML = h;
+  clearInterval(tick);
+  if (L.inicio && !L.fim) tick = setInterval(() => { const el = $('#tdur'); if (el) el.textContent = fmtDur(Date.now() - L.inicio); else clearInterval(tick); }, 1000);
 }
 
 /* ---------- PLANO ---------- */
@@ -446,6 +558,22 @@ function renderProg(){
   if (cargas.length) h += `<p class="cap" style="margin-top:8px">Maior carga por treino · último: ${fmtN(cargas[cargas.length-1].v)} kg</p>`;
   h += chart([{ pts:cargas }]);
 
+  // futsal
+  const jogos = [];
+  dks.forEach(k => { const J = S[k].jogo || {}; Object.keys(J).forEach(a => { const j = J[a]; if (j && (j.min != null || j.gols != null || j.sens != null || j.dor != null)) jogos.push({ data:k.slice(4), nome:a, ...j }); }); });
+  if (jogos.length){
+    const gols = jogos.reduce((t,j) => t + (j.gols || 0), 0);
+    const dores = jogos.filter(j => j.dor != null);
+    const mDor = dores.length ? dores.reduce((t,j) => t + j.dor, 0) / dores.length : null;
+    h += '<h2 class="mh">Futsal</h2>';
+    h += `<div class="sum card2"><div><b>${jogos.length}</b><span>jogos</span></div><div><b>${gols}</b><span>gols</span></div><div><b>${mDor != null ? fmtN(mDor) : '–'}</b><span>dor média</span></div></div>`;
+    if (dores.length > 1){ h += '<p class="cap" style="margin-top:12px">Dor da pubalgia depois do jogo (0–10)</p>' + chart([{ pts:dores.map(j => ({ l:fmtD(j.data), v:j.dor })), color:'var(--warn)' }]); }
+    h += '<ul class="list">' + jogos.slice().reverse().slice(0,10).map(j => {
+      const bits = [j.min != null ? j.min + ' min' : '', j.gols != null ? j.gols + (j.gols === 1 ? ' gol' : ' gols') : '', j.dor != null ? 'dor ' + j.dor : ''].filter(Boolean).join(' · ');
+      return `<li><span class="ld">${fmtD(j.data)}</span><span class="lm"><span class="rn">${esc(j.nome)}</span><span class="rd">${esc(bits || 'sem detalhes')}</span></span>${j.sens ? `<span class="emo">${SENS[j.sens-1]}</span>` : ''}</li>`;
+    }).join('') + '</ul>';
+  }
+
   // histórico
   h += '<h2 class="mh">Histórico</h2>';
   const hist = dks.filter(k => k.slice(4) <= hoje() && hasContent(S[k])).reverse().slice(0,30);
@@ -455,6 +583,7 @@ function renderProg(){
     const nEx = Object.values(L.treino||{}).filter(r => r.series.length && r.series.every(s => s.ok)).length;
     const nRef = Object.values(L.ref||{}).filter(Boolean).length;
     const bits = [];
+    if (L.inicio && L.fim) bits.push(fmtDurTxt(L.fim - L.inicio));
     if (nEx) bits.push(nEx + ' exercício' + (nEx>1?'s':''));
     if (L.cardio) bits.push('cardio');
     Object.keys(L.ativ||{}).forEach(a => { if (L.ativ[a]) bits.push(a.toLowerCase()); });
@@ -542,6 +671,11 @@ VIEW.addEventListener('click', async e => {
   switch (a){
     case 'dprev': cur = addDays(cur, -1); pickOpen = false; render(); return;
     case 'dnext': cur = addDays(cur, 1); pickOpen = false; render(); return;
+    case 'tstart': L.inicio = Date.now(); delete L.fim; touch(cur); keepScroll(render); return;
+    case 'tfim': if (confirm('Finalizar o treino agora?')){ L.fim = Date.now(); touch(cur); render(); window.scrollTo(0,0); } return;
+    case 'tret': delete L.fim; touch(cur); keepScroll(render); return;
+    case 'tshare': shareResumo(); return;
+    case 'jsens': case 'jdor': { L.jogo = L.jogo || {}; const j = L.jogo[id] = L.jogo[id] || {}; const v = parseInt(b.dataset.v); const f = a === 'jsens' ? 'sens' : 'dor'; j[f] = j[f] === v ? null : v; touch(cur); keepScroll(render); return; }
     case 'tpick': pickOpen = !pickOpen; keepScroll(render); return;
     case 'tclose': pickOpen = false; keepScroll(render); return;
     case 'tset': { const k = parseInt(id); if (k === idxOf(parse(cur))) delete L.treinoDia; else L.treinoDia = k; pickOpen = false; touch(cur); render(); window.scrollTo(0,0); return; }
@@ -552,11 +686,15 @@ VIEW.addEventListener('click', async e => {
       e.preventDefault();
       const tr = treinoDo(cur);
       const exo = tr.itens.find(x => x.id === exId); const r = getEx(L, exo); const s = r.series[i];
+      const mxAntes = maxOk(r);
       s.ok = !s.ok;
       if (s.ok){
         const last = lastSets(exo, cur);
         if (!s.kg && last && last[i] && last[i].kg) s.kg = last[i].kg;
         if (!s.reps) s.reps = numReps(exo.reps);
+        if (!L.inicio){ L.inicio = Date.now(); toast('⏱ Cronômetro iniciado'); }
+        const v = num(s.kg), prev = bestKg(exo.nome, cur);
+        if (v != null && prev != null && v > prev && (mxAntes == null || v > mxAntes)){ toast('🏆 Novo recorde: ' + exo.nome + ' · ' + fmtN(v) + ' kg'); if (navigator.vibrate) navigator.vibrate([40,40,80]); }
       }
       r.nome = exo.nome; touch(cur); keepScroll(render); return;
     }
@@ -632,6 +770,7 @@ VIEW.addEventListener('change', e => {
       const exo = treinoDo(cur).itens.find(x => x.id === el.dataset.ex);
       const r = getEx(dia(cur), exo); r.nome = exo.nome; r.series[parseInt(el.dataset.i)][f] = el.value.trim(); touch(cur);
     } else if (f === 'nota'){ dia(cur).nota = el.value; touch(cur); }
+    else if (f === 'jmin' || f === 'jgol'){ const L = dia(cur); L.jogo = L.jogo || {}; const j = L.jogo[el.dataset.id] = L.jogo[el.dataset.id] || {}; j[f === 'jmin' ? 'min' : 'gols'] = num(el.value); touch(cur); }
     else if (f === 'progex'){ progEx = el.value; keepScroll(render); }
     else if (f === 'snotas'){ S.saude.notas = el.value; save('saude'); }
     return;
