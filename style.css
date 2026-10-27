@@ -435,3 +435,10 @@ button.tile{font:inherit;cursor:pointer}
 .suprow .tomei{width:100%;min-height:36px}
 .appt3 .ax em{font-size:12px}
 .srow .ax b .cnt3{margin-left:2px}
+
+/* ===================== Tema grafite ===================== */
+:root{--bg:#1F2024;--surface:#2B2C31;--surface2:#36373D;--field:#25262A;--line:#3A3B42;--line2:#4A4B53;--muted:#B0ADA8}
+.palco{background:radial-gradient(110% 80% at 74% 58%, #7A1A1E 0%, #3F1F22 45%, #2B2C31 78%);border-color:#4A2427}
+.bars span{background:#44454C} .agua2 .tank{background:#3A3B42} .tabbar{background:rgba(31,32,36,.95)}
+.sr input{background:var(--field)} .wk-day:not(.on){background:var(--surface)}
+.bodies [fill="#1C1C20"]{fill:#202126}

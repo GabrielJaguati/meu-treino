@@ -3,8 +3,8 @@
   "short_name": "Meu Treino",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#161618",
-  "theme_color": "#161618",
+  "background_color": "#1F2024",
+  "theme_color": "#1F2024",
   "icons": [
     {
       "src": "icon-192.png",

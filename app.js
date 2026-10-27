@@ -446,7 +446,7 @@ function estadoMusculos(){
   });
   return info;
 }
-function corSt(st){ return { rec:'var(--accent)', quase:'var(--warn)', pronto:'var(--ok)', parado:'#2A2A30' }[st]; }
+function corSt(st){ return { rec:'var(--accent)', quase:'var(--warn)', pronto:'var(--ok)', parado:'#4A4B53' }[st]; }
 // boneco frente/costas; fill(id) devolve os atributos de pintura de cada grupo
 function corpoSvgs(fill, cls){
   const N = 'fill="#1C1C20"', f = id => fill(id);
@@ -484,7 +484,7 @@ function mapaHtml(){
     return `<div class="mg"><i style="background:${corSt(x.st)}"></i><span class="lm"><b>${nome}</b><span class="rd">${quando}${x.series ? ' · ' + x.series + ' séries na semana' : ''}</span></span></div>`;
   }).join('');
   return `<div class="bodies"><div><span class="lbl">Frente</span>${frente}</div><div><span class="lbl">Costas</span>${costas}</div></div>
-    <div class="legend2"><span><i style="background:var(--accent)"></i>Recuperando</span><span><i style="background:var(--warn)"></i>Quase</span><span><i style="background:var(--ok)"></i>Pronto</span><span><i style="background:#2A2A30"></i>Parado 7+ dias</span></div>
+    <div class="legend2"><span><i style="background:var(--accent)"></i>Recuperando</span><span><i style="background:var(--warn)"></i>Quase</span><span><i style="background:var(--ok)"></i>Pronto</span><span><i style="background:#4A4B53"></i>Parado 7+ dias</span></div>
     <div class="mgrid">${lista}</div>`;
 }
 
