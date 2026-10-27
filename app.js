@@ -423,8 +423,8 @@ function renderHoje(){
   const media = durs.length ? durs.reduce((a,b) => a + b, 0) / durs.length : null;
   let tVal = '--:--', tSub = media ? 'MÉDIA ' + fmtDurTxt(media).toUpperCase() : 'CRONÔMETRO', tBtn = '';
   if (L.inicio && !L.fim){ tVal = `<span id="tdur">${fmtDur(Date.now() - L.inicio)}</span>`; tBtn = '<button class="tile-btn" data-act="tfim">FINALIZAR</button>'; }
-  else if (L.inicio && L.fim){ tVal = fmtDur(L.fim - L.inicio); tSub = 'FINALIZADO'; tBtn = '<button class="tile-btn ghost" data-act="tret">RETOMAR</button>'; }
-  else if (t.itens.length || t.cardio) tBtn = '<button class="tile-btn" data-act="tstart">▶ INICIAR</button>';
+  else if (L.inicio && L.fim){ tVal = fmtDur(L.fim - L.inicio); tSub = 'FINALIZADO'; tBtn = '<div class="tbtns"><button class="tile-btn ghost" data-act="tret">RETOMAR</button><button class="tile-btn ghost" data-act="tedit">EDITAR</button></div>'; }
+  else if (t.itens.length || t.cardio) tBtn = '<button class="tile-btn" data-act="tstart">▶ INICIAR</button><button class="tile-lnk" data-act="tedit">LANÇAR TEMPO MANUAL</button>';
   const volHoje = volDia(L);
   const vols = Object.keys(S).filter(k => k.startsWith('dia:') && k.slice(4) < cur).sort().map(k => volDia(S[k])).filter(v => v > 0).slice(-4).concat([volHoje]);
   const vMax = Math.max(1, ...vols);
@@ -752,6 +752,17 @@ VIEW.addEventListener('click', async e => {
     case 'dnext': cur = addDays(cur, 1); pickOpen = false; render(); return;
     case 'tstart': L.inicio = Date.now(); delete L.fim; touch(cur); keepScroll(render); return;
     case 'tfim': if (confirm('Finalizar o treino agora?')){ L.fim = Date.now(); touch(cur); render(); window.scrollTo(0,0); } return;
+    case 'tedit': {
+      const atualMin = L.inicio && L.fim ? Math.round((L.fim - L.inicio) / 60000) : '';
+      const v = prompt('Quanto tempo durou o treino? (em minutos)', atualMin);
+      if (v == null) return;
+      const m = parseInt(String(v).replace(/\D/g, ''));
+      if (!m || m < 1 || m > 600){ alert('Digite os minutos, por exemplo 50.'); return; }
+      const fim = L.fim || (cur === hoje() ? Date.now() : parse(cur).setHours(20, 0, 0, 0));
+      L.fim = fim; L.inicio = fim - m * 60000;
+      touch(cur); keepScroll(render); toast('⏱ Treino de ' + fmtDurTxt(m * 60000) + ' salvo');
+      return;
+    }
     case 'tret': delete L.fim; touch(cur); keepScroll(render); return;
     case 'tshare': shareResumo(); return;
     case 'jsens': case 'jdor': { L.jogo = L.jogo || {}; const j = L.jogo[id] = L.jogo[id] || {}; const v = parseInt(b.dataset.v); const f = a === 'jsens' ? 'sens' : 'dor'; j[f] = j[f] === v ? null : v; touch(cur); keepScroll(render); return; }

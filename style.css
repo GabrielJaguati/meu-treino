@@ -296,3 +296,5 @@ details.ex.done .dot,details.ex[open] .dot{background:var(--accent)}
 .tabbtn.on{color:var(--accent)}
 
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+.tbtns{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.tile-lnk{background:none;border:0;padding:6px 0 0;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.1em;text-decoration:underline;text-underline-offset:3px}
