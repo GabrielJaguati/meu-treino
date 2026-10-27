@@ -722,8 +722,10 @@ function renderHoje(){
 
   if (L.fim) h += resumoHtml(L, cur);
 
-  const evs = ocorrencias(cur, cur);
-  if (evs.length) h += panel('Compromissos', IC.agenda, evs.map(o => evtHtml(o, false)).join(''));
+  // hoje: só o que ainda vai acontecer e não está no bloco pequeno; outros dias: tudo
+  let evs = ocorrencias(cur, cur);
+  if (isToday) evs = evs.filter(o => (!o.e.hora || o.e.hora >= hhmm) && !(prox && o.e.id === prox.e.id && o.data === prox.data));
+  if (evs.length) h += panel(isToday ? 'Ainda hoje' : 'Compromissos', IC.agenda, evs.map(o => evtHtml(o, false)).join(''));
 
   let b = '';
   if (P().obs && t.itens.length) b += `<p class="tip">${esc(P().obs)}</p>`;
