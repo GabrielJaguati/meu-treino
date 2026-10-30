@@ -633,6 +633,69 @@ function diaFrac(ds){
   return [tt ? to / tt : 0, (X.agua || 0) / (P().metaAgua || 3500), dt ? dok / dt : 0];
 }
 
+/* ---------- calendário do ano ---------- */
+let calFiltro = 'tudo', calSel = null;
+const CAL_COR = { tudo:'#FF3B30', treino:'#FF3B30', agua:'#4C8DFF', dieta:'#3DD68C' };
+function calDia(ds){
+  // frações do dia; treino = null em dia sem nada programado
+  const X = S['dia:' + ds]; if (!X) return null;
+  const i = idxOf(parse(ds)), ti = X.treinoDia != null ? X.treinoDia : i, t = P().treinos[ti] || { itens:[] };
+  let tt = 0, to = 0;
+  t.itens.forEach(e => { tt++; const r = (X.treino||{})[e.id]; if (r && r.series.length && r.series.every(s => s.ok)) to++; });
+  if (t.cardio){ tt++; if (X.cardio) to++; }
+  (t.atividades||[]).forEach(a => { tt++; if ((X.ativ||{})[a]) to++; });
+  // treino feito fora do plano (ex.: troca) também conta
+  const algo = Object.values(X.treino||{}).some(r => (r.series||[]).some(s => s.ok)) || !!X.cardio || Object.values(X.ativ||{}).some(Boolean);
+  const sup = P().suplementos.filter(s => (s.dias||[]).includes(i));
+  const dt = P().refeicoes.length + sup.length, dok = P().refeicoes.filter(m => (X.ref||{})[m.id]).length + sup.filter(s => (X.supl||{})[s.id]).length;
+  const tr = tt ? to / tt : (algo ? 1 : null);
+  const ag = Math.min(1, (X.agua || 0) / (P().metaAgua || 3500)), di = dt ? dok / dt : 0;
+  return { tr, ag, di, dok, dt, agua: X.agua || 0, nome: X.tnome || t.nome || '' };
+}
+function calNota(c, f){
+  if (!c) return 0;
+  const v = f === 'treino' ? (c.tr == null ? 0 : c.tr) : f === 'agua' ? c.ag : f === 'dieta' ? c.di
+    : (() => { const a = [c.ag, c.di]; if (c.tr != null) a.push(c.tr); return a.reduce((x, y) => x + y, 0) / a.length; })();
+  return v <= 0 ? 0 : v < .34 ? 1 : v < .67 ? 2 : v < .999 ? 3 : 4;
+}
+function calAno(){
+  const hj = hoje(), dks = Object.keys(S).filter(k => k.startsWith('dia:')).map(k => k.slice(4)).sort();
+  const ano = hj.slice(0, 4), f = calFiltro;
+  const notas = {}; dks.forEach(ds => { if (ds <= hj) notas[ds] = calNota(calDia(ds), f); });
+  // números do placar
+  const ativos = Object.keys(notas).filter(ds => ds.startsWith(ano) && notas[ds] > 0).length;
+  let seq = 0, d = hj; if ((notas[d] || 0) < 3) d = addDays(d, -1);
+  while ((notas[d] || 0) >= 3){ seq++; d = addDays(d, -1); }
+  let best = 0, run = 0, prev = null;
+  Object.keys(notas).sort().forEach(ds => { if (notas[ds] >= 3){ run = prev && addDays(prev, 1) === ds ? run + 1 : 1; prev = ds; best = Math.max(best, run); } else { run = 0; prev = null; } });
+  // meses: do primeiro registro (máx. 11 meses pra trás) até dezembro
+  const ym = s => +s.slice(0, 4) * 12 + (+s.slice(5, 7) - 1);
+  const fim = +ano * 12 + 11, atual = ym(hj), ini = Math.max(atual - 11, Math.min(atual, dks.length ? ym(dks[0]) : atual));
+  const MES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  let meses = '';
+  for (let m = ini; m <= fim; m++){
+    const y = Math.floor(m / 12), mo = m % 12, d1 = new Date(y, mo, 1), nd = new Date(y, mo + 1, 0).getDate();
+    let cel = '<i class="v"></i>'.repeat(idxOf(d1));
+    for (let k = 1; k <= nd; k++){
+      const ds = y + '-' + pad2(mo + 1) + '-' + pad2(k);
+      const cls = ds > hj ? 'fu' : 'n' + (notas[ds] || 0);
+      cel += `<button class="${cls}${ds === hj ? ' hj' : ''}${ds === calSel ? ' sel' : ''}" data-act="calsel" data-id="${ds}" aria-label="${fmtD(ds)}"${ds > hj ? ' disabled' : ''}></button>`;
+    }
+    meses += `<div class="cmes${m === atual ? ' at' : ''}"><span>${MES[mo]}${y !== +ano ? ' ' + String(y).slice(2) : ''}</span><div class="cgrid">${cel}</div></div>`;
+  }
+  let det = '';
+  if (calSel){
+    const c = calDia(calSel), dl = DIAS_F[idxOf(parse(calSel))] + ', ' + fmtD(calSel);
+    det = `<div class="cdet"><div class="lm"><b>${dl}</b><span>${c ? [c.tr == null ? 'Descanso' : (c.tr >= .999 ? 'Treino feito' : c.tr > 0 ? 'Treino pela metade' : 'Sem treino') + (c.nome ? ' (' + esc(c.nome) + ')' : ''), 'Água ' + fmtN(c.agua / 1000) + ' L', 'Dieta ' + c.dok + '/' + c.dt].join(' · ') : 'Nada registrado'}</span></div><button class="mini2" data-act="goday" data-id="${calSel}">Abrir</button></div>`;
+  }
+  const chips = [['tudo','Tudo'],['treino','Treino'],['agua','Água'],['dieta','Dieta']].map(([k, n]) => `<button class="${f === k ? 'on' : ''}" data-act="calf" data-id="${k}">${n}</button>`).join('');
+  return `<h2 class="mh">Seu ano</h2><section class="ccal" style="--cc:${CAL_COR[f]}">
+    <div class="board"><div class="sc3"><div class="tm"><span>DIAS ATIVOS</span><b class="led wht">${ativos}</b></div><div class="tm clk"><span>SEQUÊNCIA</span><b class="led">${seq}</b></div><div class="tm"><span>RECORDE</span><b class="led amb">${best}</b></div></div>
+    <span class="bcap">SEQUÊNCIA: DIAS SEGUIDOS COM 2/3 FEITO</span></div>
+    <div class="cchips">${chips}</div><div class="cmeses">${meses}</div>
+    <div class="cleg"><span>menos</span><i class="n1"></i><i class="n2"></i><i class="n3"></i><i class="n4"></i><span>dia completo</span></div>${det}</section>`;
+}
+
 function renderHoje(){
   const d = parse(cur), i = idxOf(d), isToday = cur === hoje();
   const L = dia(cur), ti = tIdx(cur), trocado = ti !== i;
@@ -902,6 +965,7 @@ function renderProg(){
   const prMes = dm.reduce((a, k) => a + recordes(S[k], k.slice(4)).length, 0);
   const aguas = dm.map(k => S[k].agua || 0).filter(v => v > 0), mAgua = aguas.length ? aguas.reduce((a, b) => a + b, 0) / aguas.length / 1000 : 0;
   h += `<div class="rings3 stat"><div class="rg"><span><b class="led amb">${prMes}</b><small>Recordes no mês</small></span></div><div class="rg"><span><b class="led">${treinosMes}</b><small>Treinos no mês</small></span></div><div class="rg"><span><b class="led blu">${fmtN(mAgua)}L</b><small>Média de água</small></span></div></div>`;
+  h += calAno();
   h += '<h2 class="mh">Peso</h2>' + chart([{ pts: pesos.map(m => ({ l:fmtD(m.data), v:m.peso })) }]);
   const cint = M.filter(m => m.cintura != null);
   if (cint.length > 1) h += '<p class="cap" style="margin-top:14px">Cintura (cm)</p>' + chart([{ pts: cint.map(m => ({ l:fmtD(m.data), v:m.cintura })), color:'var(--warn)' }]);
@@ -1278,6 +1342,8 @@ VIEW.addEventListener('click', async e => {
     case 'tclose': pickOpen = false; keepScroll(render); return;
     case 'tset': { const k = parseInt(id); if (k === idxOf(parse(cur))) delete L.treinoDia; else L.treinoDia = k; pickOpen = false; touch(cur); render(); window.scrollTo(0,0); return; }
     case 'dtoday': cur = hoje(); render(); return;
+    case 'calsel': calSel = calSel === id ? null : id; keepScroll(render); return;
+    case 'calf': calFiltro = id; keepScroll(render); return;
     case 'goday': cur = id; tab = 'hoje'; render(); window.scrollTo(0,0); return;
 
     case 'setok': {

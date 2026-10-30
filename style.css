@@ -640,3 +640,31 @@ body.em-modo #app{padding-bottom:calc(20px + env(safe-area-inset-bottom))}
 .tabbtn.on::before{display:none}
 .tabbtn.on svg{filter:drop-shadow(0 0 6px rgba(255,97,89,.55))}
 .tabbtn.on{text-shadow:0 0 8px rgba(255,97,89,.45)}
+
+/* ===================== Calendário do ano ===================== */
+.ccal{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:12px}
+.ccal .sc3 .tm b.led{font-size:40px}
+.ccal .clk .led{font-size:40px}
+.cchips{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:var(--bg);border-radius:12px;padding:4px;margin:12px 0 4px}
+.cchips button{border:0;background:none;min-height:36px;border-radius:9px;font-weight:700;font-size:13px;color:var(--muted)}
+.cchips button.on{background:var(--cc);color:#fff;box-shadow:0 0 12px color-mix(in srgb,var(--cc) 55%,transparent)}
+.cmeses{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 10px;margin-top:12px}
+.cmes>span{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.cmes.at>span{color:var(--ink)}
+.cgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2.5px}
+.cgrid>*{aspect-ratio:1;border-radius:3px;border:0;padding:0;background:#34353B}
+.cgrid i.v{background:none}
+.cgrid .fu{background:none;box-shadow:inset 0 0 0 1px #34353B}
+.cgrid .n1,.cleg .n1{background:color-mix(in srgb,var(--cc) 30%,#34353B)}
+.cgrid .n2,.cleg .n2{background:color-mix(in srgb,var(--cc) 58%,#34353B)}
+.cgrid .n3,.cleg .n3{background:color-mix(in srgb,var(--cc) 85%,#34353B)}
+.cgrid .n4,.cleg .n4{background:var(--cc);box-shadow:0 0 6px color-mix(in srgb,var(--cc) 70%,transparent)}
+.cgrid .hj{outline:1.5px solid var(--ink);outline-offset:1px}
+.cgrid .sel{outline:2px solid #FFC93C;outline-offset:1px}
+.cleg{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:14px;font-size:11px;font-weight:600;color:var(--muted)}
+.cleg i{width:11px;height:11px;border-radius:3px}
+.cleg span{margin:0 4px}
+.cdet{display:flex;align-items:center;gap:10px;margin-top:12px;padding:10px 12px;border-radius:14px;background:var(--bg)}
+.cdet .lm{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.cdet .lm b{font-size:14px}
+.cdet .lm span{font-size:12px;color:var(--muted)}
