@@ -1161,6 +1161,7 @@ function abrirModo(exId){
   let e = t.itens.find(x => x.id === exId);
   if (!e || exFeito(L, e)) e = t.itens.find(x => !exFeito(L, x)) || t.itens[0];
   modo = { ex: e.id, rest: null, fimTreino: !t.itens.some(x => !exFeito(L, x)) };
+  if (!L.inicio && !modo.fimTreino){ L.inicio = Date.now(); delete L.fim; touch(cur); toast('⏱ Cronômetro iniciado'); }
   try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume && audioCtx.resume(); } catch(_){}
   manterTelaAcesa(true);
   render(); window.scrollTo(0, 0);
