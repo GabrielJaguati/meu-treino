@@ -754,7 +754,7 @@ function renderHoje(){
       cta = `<button class="scta" data-act="modo" data-ex="${e.id}">▶ ${L.inicio ? 'Continuar no modo treino' : 'Abrir modo treino'}</button>`;
     } else if (!L.fim) cta = '<button class="scta" data-act="tfim">Finalizar e ver o resumo</button>';
     else cta = '<button class="scta ghost" data-act="modo">Ver resumo do treino</button>';
-    const tlink = !L.inicio ? '<button class="slink" data-act="tedit">lançar tempo à mão</button>' : !L.fim ? '<button class="slink" data-act="tfim">finalizar treino</button>' : '<button class="slink" data-act="tedit">editar tempo</button>';
+    const tlink = !L.inicio ? '<div class="slinks"><button class="slink b" data-act="tstart">▶ iniciar cronômetro</button><button class="slink" data-act="tedit">lançar tempo à mão</button></div>' : !L.fim ? '<button class="slink" data-act="tfim">finalizar treino</button>' : '<button class="slink" data-act="tedit">editar tempo</button>';
     cards.push(`<section class="scard red"><div class="shead"><div><span class="k">${isToday ? 'Treino de hoje' : 'Treino de ' + DIAS_F[i].toLowerCase()}${trocado ? ' (trocado)' : ''}</span><h2 class="stt" style="font-size:${fs}px">${esc(nome)}</h2></div>${swapBtn}</div>
       <div class="board"><div class="sc3"><div class="tm"><span>FEITOS</span><b class="led">${exOk}</b></div><div class="tm clk">${clk}<span>TEMPO</span></div><div class="tm"><span>FALTAM</span><b class="led wht">${t.itens.length - exOk}</b></div></div>
         <div class="ldots">${dots}</div><div class="bcap">${serOk} DE ${serTot} SÉRIES · <span id="vvol">${Math.round(volHoje).toLocaleString('pt-BR')}</span> KG</div></div>
@@ -791,6 +791,16 @@ function renderHoje(){
       <p class="sp">${dl}${prox.e.local ? ', ' + esc(prox.e.local) : ''}</p><div class="sgrow"></div><button class="scta dark2" data-act="tabag">Ver agenda</button></section>`);
   }
   h += stories('st-hoje', cards);
+  if (pickOpen){
+    let pk = '<p class="tip">Escolha qual treino do plano você vai fazer hoje. O histórico e as cargas acompanham o treino escolhido.</p>';
+    DIAS_F.forEach((n,k) => {
+      const tt = P().treinos[k]; if (!tt) return;
+      const desc = [tt.itens.length ? tt.itens.length + ' exercícios' : '', tt.cardio || '', (tt.atividades||[]).join(', ')].filter(Boolean).join(' · ') || 'sem exercícios';
+      pk += `<button class="row pick ${k===ti?'done':''}" data-act="tset" data-id="${k}"><span class="c">${CHECK}</span><span class="rowmain"><span class="rn">${esc(tt.nome || 'Descanso')}</span><span class="rd">${DIAS[k]}${k===i?' (padrão de hoje)':''} · ${esc(desc)}</span></span></button>`;
+    });
+    pk += '<button class="btn" data-act="tclose">Cancelar</button>';
+    h += '<div id="tpick">' + panel('Trocar treino', ICON.swap, pk) + '</div>';
+  }
 
   // ---- anéis do dia ----
   const fT = t.itens.length ? exOk / t.itens.length : (() => { const a = [t.cardio ? !!L.cardio : null, ...(t.atividades||[]).map(x => !!L.ativ[x])].filter(x => x !== null); return a.length ? a.filter(Boolean).length / a.length : 0; })();
@@ -809,16 +819,6 @@ function renderHoje(){
   supPend.slice(0, 2).forEach(x => falta.push(`<div class="fit"><i style="background:${CORD}"></i><span class="lm"><b>${esc(x.nome)}</b><span>${esc(x.hora || x.dose || '')}</span></span><button class="mini2" data-act="supl" data-id="${x.id}">Tomei</button></div>`));
   if (isToday && falta.length) h += `<h2 class="sh2">Falta hoje</h2><div class="fcard">${falta.slice(0, 5).join('')}</div>`;
 
-  if (pickOpen){
-    let pk = '<p class="tip">Escolha qual treino do plano você vai fazer hoje. O histórico e as cargas acompanham o treino escolhido.</p>';
-    DIAS_F.forEach((n,k) => {
-      const tt = P().treinos[k]; if (!tt) return;
-      const desc = [tt.itens.length ? tt.itens.length + ' exercícios' : '', tt.cardio || '', (tt.atividades||[]).join(', ')].filter(Boolean).join(' · ') || 'sem exercícios';
-      pk += `<button class="row pick ${k===ti?'done':''}" data-act="tset" data-id="${k}"><span class="c">${CHECK}</span><span class="rowmain"><span class="rn">${esc(tt.nome || 'Descanso')}</span><span class="rd">${DIAS[k]}${k===i?' (padrão de hoje)':''} · ${esc(desc)}</span></span></button>`;
-    });
-    pk += '<button class="btn" data-act="tclose">Cancelar</button>';
-    h += panel('Trocar treino', ICON.swap, pk);
-  }
 
   if (L.fim) h += resumoHtml(L, cur);
 
@@ -1338,7 +1338,7 @@ VIEW.addEventListener('click', async e => {
     case 'meta': { const v = prompt('Meta de peso (kg)', String(P().metaPeso || 95).replace('.', ',')); if (v == null) return; const n = num(v); if (!n || n < 40 || n > 250) return; P().metaPeso = n; save('plano'); keepScroll(render); return; }
     case 'goform': { const el = $('#m_peso'); if (el){ el.scrollIntoView({ behavior:'smooth', block:'center' }); setTimeout(() => el.focus(), 350); } return; }
     case 'golesao': { const el = $('#lesoes'); if (el) el.scrollIntoView({ behavior:'smooth', block:'start' }); return; }
-    case 'tpick': pickOpen = !pickOpen; keepScroll(render); return;
+    case 'tpick': pickOpen = !pickOpen; keepScroll(render); if (pickOpen){ const el = document.getElementById('tpick'); if (el) el.scrollIntoView({ behavior:'smooth', block:'start' }); } return;
     case 'tclose': pickOpen = false; keepScroll(render); return;
     case 'tset': { const k = parseInt(id); if (k === idxOf(parse(cur))) delete L.treinoDia; else L.treinoDia = k; pickOpen = false; touch(cur); render(); window.scrollTo(0,0); return; }
     case 'dtoday': cur = hoje(); render(); return;
