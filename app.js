@@ -573,6 +573,66 @@ const ICONE_TREINO = {
   halter: `<svg viewBox="0 0 120 120" class="ic-dia" role="img" aria-label="Treino"><rect x="30" y="56" width="60" height="8" rx="4" fill="#8E8C88"/><rect x="14" y="36" width="14" height="48" rx="4" fill="#D7191F"/><rect x="92" y="36" width="14" height="48" rx="4" fill="#D7191F"/></svg>`
 };
 
+/* ---------- componentes: Placar (LED) + Stories (cards deslizáveis) + Anéis ---------- */
+const trackPos = {};
+function anelSvg(rings, size, cls){
+  // rings: [{r, cor, f, sw}] num viewBox de 44
+  return `<svg class="${cls || ''}" viewBox="0 0 44 44" width="${size}" height="${size}" aria-hidden="true">` + rings.map(x => {
+    const C = 2 * Math.PI * x.r, f = Math.max(0, Math.min(1, x.f || 0));
+    return `<circle cx="22" cy="22" r="${x.r}" fill="none" stroke="${x.cor}" stroke-opacity=".2" stroke-width="${x.sw || 5}"/><circle cx="22" cy="22" r="${x.r}" fill="none" stroke="${x.cor}" stroke-width="${x.sw || 5}" stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C * (1 - f)).toFixed(1)}"/>`;
+  }).join('') + '</svg>';
+}
+const CORT = '#FF4A3F', CORA = '#4C8DFF', CORD = '#3DD68C';
+function tri3(a, b, c, size){ return anelSvg([{ r:18, cor:CORT, f:a, sw:4.5 }, { r:12.5, cor:CORA, f:b, sw:4.5 }, { r:7, cor:CORD, f:c, sw:4.5 }], size || 38, 'tri'); }
+function stories(id, cards, start){
+  if (!cards.length) return '';
+  return `<div class="sbars" data-for="${id}" style="grid-template-columns:repeat(${cards.length},1fr)">${cards.map(() => '<i><b></b></i>').join('')}</div>
+    <div class="strack" id="${id}" data-n="${cards.length}"${start ? ` data-start="${start}"` : ''}>${cards.join('')}<span class="send" aria-hidden="true"></span></div>`;
+}
+function initTracks(){
+  document.querySelectorAll('.strack').forEach(tr => {
+    const id = tr.id, cards = tr.querySelectorAll('.scard'), bars = document.querySelectorAll(`.sbars[data-for="${id}"] b`);
+    const step = () => cards.length > 1 ? cards[1].offsetLeft - cards[0].offsetLeft : 1;
+    const upd = () => {
+      const k = Math.round(tr.scrollLeft / step());
+      bars.forEach((b, j) => { b.style.width = j <= k ? '100%' : '0'; });
+      trackPos[id] = tr.scrollLeft;
+    };
+    if (trackPos[id] != null) tr.scrollLeft = trackPos[id];
+    else if (tr.dataset.start){ tr.scrollLeft = parseInt(tr.dataset.start) * step(); }
+    tr.addEventListener('scroll', upd, { passive:true });
+    upd();
+  });
+}
+function irCard(id, k){
+  const tr = document.getElementById(id); if (!tr) return;
+  const cards = tr.querySelectorAll('.scard'); if (!cards[k]) return;
+  tr.scrollTo({ left: cards[k].offsetLeft - cards[0].offsetLeft, behavior:'smooth' });
+}
+function contagem(o){
+  const agora = new Date();
+  if (o.e.hora){
+    const p = o.e.hora.split(':').map(Number), dt = parse(o.data); dt.setHours(p[0], p[1]);
+    const hrs = (dt - agora) / 3600000;
+    if (hrs < 0) return { n:'AGORA', u:'' };
+    if (hrs < 1) return { n:String(Math.max(1, Math.round(hrs * 60))), u:'MIN' };
+    if (hrs < 24) return { n:String(Math.round(hrs)), u:'HORAS' };
+  }
+  const d = Math.round((parse(o.data) - parse(hoje())) / 864e5);
+  return d <= 0 ? { n:'HOJE', u:'' } : { n:pad2(d), u: d === 1 ? 'DIA' : 'DIAS' };
+}
+function diaFrac(ds){
+  const X = S['dia:' + ds]; if (!X) return [0, 0, 0];
+  const i = idxOf(parse(ds)), ti = X.treinoDia != null ? X.treinoDia : i, t = P().treinos[ti] || { itens:[] };
+  let tt = 0, to = 0;
+  t.itens.forEach(e => { tt++; const r = (X.treino||{})[e.id]; if (r && r.series.length && r.series.every(s => s.ok)) to++; });
+  if (t.cardio){ tt++; if (X.cardio) to++; }
+  (t.atividades||[]).forEach(a => { tt++; if ((X.ativ||{})[a]) to++; });
+  const sup = P().suplementos.filter(s => (s.dias||[]).includes(i));
+  const dt = P().refeicoes.length + sup.length, dok = P().refeicoes.filter(m => (X.ref||{})[m.id]).length + sup.filter(s => (X.supl||{})[s.id]).length;
+  return [tt ? to / tt : 0, (X.agua || 0) / (P().metaAgua || 3500), dt ? dok / dt : 0];
+}
+
 function renderHoje(){
   const d = parse(cur), i = idxOf(d), isToday = cur === hoje();
   const L = dia(cur), ti = tIdx(cur), trocado = ti !== i;
@@ -608,107 +668,83 @@ function renderHoje(){
   let h = `<header class="top"><div class="tl"><span class="dt">${dataTxt}${isToday ? '' : ' <button class="lnk" data-act="dtoday">voltar pra hoje</button>'}</span><span class="hi">${saud}, ${NOME}</span></div>${streak ? `<span class="streak" title="Dias seguidos com treino"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c2 3 5 5 5 9a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-8z"/></svg><b>${streak}</b> ${streak === 1 ? 'dia' : 'dias'}</span>` : ''}</header>`;
   h += `<nav class="week" aria-label="Dias da semana">${wk}</nav>`;
 
-  // ---- palco: músculos do dia acendem conforme os exercícios ficam prontos ----
+  // ---- cards do dia (Stories) ----
   const nome = t.nome || 'Descanso';
-  const alvo = {};
-  t.itens.forEach(e => {
-    const r = L.treino[e.id], feito = r && r.series.length && r.series.every(s => s.ok);
-    const parcial = r ? r.series.filter(s => s.ok).length / Math.max(1, r.series.length) : 0;
-    musculosDe(e.nome).forEach(g => { const x = alvo[g] = alvo[g] || { tot:0, ok:0, prog:0 }; x.tot++; if (feito) x.ok++; x.prog += feito ? 1 : parcial; });
-  });
-  const NOMEG = Object.fromEntries(GRUPOS);
-  const prevLoad = barraAnt[cur], subiu = prevLoad != null && exOk > prevLoad;
-  barraAnt[cur] = exOk;
-  const pinta = id => {
-    const x = alvo[id];
-    if (!x) return 'fill="#5B5A60"';
-    const f = x.prog / x.tot;
-    return `fill="rgba(255,59,48,${(0.2 + 0.68 * f).toFixed(2)})" stroke="#FF4A3F" stroke-width="1.6"`;
-  };
-  let figura = '', pills = '';
-  if (t.itens.length && Object.keys(alvo).length){
-    const { frente, costas } = corpoSvgs(pinta, 'fig');
-    const usaF = ['peito','ombro','biceps','abdomen','quad','adutor'].some(g => alvo[g]);
-    const usaC = ['costas','ombro','triceps','gluteo','posterior','panturrilha'].some(g => alvo[g]);
-    figura = `<div class="figs ${subiu ? 'pulse' : ''}">${usaF ? frente : ''}${usaC ? costas : ''}</div>`;
-    const gs = Object.keys(alvo).sort((a, b) => alvo[b].tot - alvo[a].tot);
-    pills = '<div class="pills">' + gs.slice(0, 4).map(g => { const x = alvo[g]; return `<span class="pill"><span>${NOMEG[g] || g}</span><b class="${x.ok ? 'on' : ''}">${x.ok}/${x.tot}</b></span>`; }).join('') + (gs.length > 4 ? `<span class="pill more">+${gs.length - 4}</span>` : '') + '</div>';
-  } else {
-    const txt = [t.cardio, ...(t.atividades||[])].filter(Boolean).join(' ');
-    const ic = !t.itens.length ? (/futsal|futebol/i.test(txt) ? ICONE_TREINO.bola : t.cardio ? ICONE_TREINO.cardio : ICONE_TREINO.descanso) : ICONE_TREINO.halter;
-    figura = `<div class="figs solo">${ic}</div>`;
-    pills = `<p class="hsub">${esc(txt || (t.itens.length ? t.itens.length + ' exercícios' : 'Dia livre. Descanse ou faça um cardio leve.'))}</p>`;
-  }
-  const fs = nome.length <= 10 ? 38 : nome.length <= 18 ? 34 : nome.length <= 26 ? 28 : 24;
-
-  // ---- tempo e volume ----
-  const durs = Object.keys(S).filter(k => k.startsWith('dia:') && k.slice(4) < cur && S[k].inicio && S[k].fim).map(k => S[k].fim - S[k].inicio).filter(v => v > 5*60000 && v < 4*3600000);
-  const media = durs.length ? durs.reduce((a,b) => a + b, 0) / durs.length : null;
-  let tVal = '0:00', tSub = media ? 'média ' + fmtDurTxt(media) : 'cronômetro', tAct = '';
-  if (L.inicio && !L.fim){ tVal = `<span id="tdur">${fmtDur(Date.now() - L.inicio)}</span>`; tSub = media ? 'média ' + fmtDurTxt(media) : 'treinando'; tAct = '<button class="tbtn2 hot" data-act="tfim">Finalizar</button>'; }
-  else if (L.inicio && L.fim){ tVal = fmtDur(L.fim - L.inicio); tSub = 'finalizado'; tAct = '<button class="tbtn2" data-act="tedit">Editar tempo</button>'; }
-  else if (t.itens.length || t.cardio) tAct = '<button class="tbtn2 hot" data-act="tstart">Iniciar</button><button class="slnk" data-act="tedit">lançar à mão</button>';
-  const volHoje = volDia(L);
-  const ant = sessaoAnterior(L, cur);
-  const vDelta = ant && volHoje ? Math.round((volHoje - ant.vol) / ant.vol * 100) : null;
-  const vSub = vDelta == null ? 'kg levantados' : (vDelta >= 0 ? '+' : '−') + Math.abs(vDelta) + '% vs ' + fmtD(ant.data);
-  const vols = Object.keys(S).filter(k => k.startsWith('dia:') && k.slice(4) < cur).sort().map(k => volDia(S[k])).filter(v => v > 0).slice(-4).concat([volHoje]);
-  const vMax = Math.max(1, ...vols);
-  const bars = vols.map((v, k) => `<span style="height:${Math.max(10, Math.round(v / vMax * 100))}%" class="${k === vols.length - 1 ? 'cur' : ''}"></span>`).join('');
-
-  // ---- próximo exercício ----
-  const atual = t.itens.findIndex(e => { const r = L.treino[e.id]; return !(r && r.series.length && r.series.every(s => s.ok)); });
-  let next = '';
-  if (t.itens.length && atual >= 0){
-    const e = t.itens[atual], r = getEx(L, e), nOk = r.series.filter(s => s.ok).length, last = lastSets(e, cur), sg = sugestao(e, cur);
-    const kg = (r.series.find(s => !s.ok && s.kg) || {}).kg || (sg ? fmtN(sg.kg) : '') || (last && last[nOk] && last[nOk].kg) || '';
-    next = `<button class="tile wide next2" data-act="modo" data-ex="${e.id}"><span class="nnum">${pad2(atual + 1)}</span><span class="nx"><span class="nl">${nOk ? 'Continuar' : exOk ? 'Próximo exercício' : 'Comece por'}</span><span class="nn">${esc(e.nome)}</span><span class="nd">Série ${Math.min(nOk + 1, r.series.length)} de ${r.series.length}${kg ? ', ' + esc(kg) + ' kg' : ''}</span></span><span class="na" aria-hidden="true">${ICON.r}</span></button>`;
-  } else if (t.itens.length && !L.fim){
-    next = `<button class="tile wide next2 done" data-act="tfim"><span class="nnum">✓</span><span class="nx"><span class="nl">Treino completo</span><span class="nn">Finalizar e ver o resumo</span></span><span class="na" aria-hidden="true">${ICON.r}</span></button>`;
-  }
-
-  // ---- água ----
-  const aguaPct = Math.min(100, Math.round((L.agua||0) / meta * 100));
-  const agua = `<div class="tile agua2"><div class="tank"><span style="height:${aguaPct}%"></span></div><div class="wc"><span class="sl">Água</span><span class="sv sm">${fmtN((L.agua||0)/1000)} L</span><span class="ss">meta ${fmtN(meta/1000)} L</span><div class="wbtn"><button class="wb blue" data-act="agua" data-v="250">+250</button><button class="wb" data-act="agua" data-v="-250" aria-label="Tirar 250 ml">−</button></div></div></div>`;
-
-  // ---- próximo compromisso ----
+  const fs = nome.length <= 12 ? 40 : nome.length <= 20 ? 36 : nome.length <= 28 ? 32 : 28;
   const agora = new Date(), hhmm = pad2(agora.getHours()) + ':' + pad2(agora.getMinutes());
-  const prox = ocorrencias(hoje(), addDays(hoje(), 14)).find(o => o.data > hoje() || !o.e.hora || o.e.hora >= hhmm);
-  let apptRow = '<button class="srow appt3" data-act="tabag"><i aria-hidden="true"></i><span class="ax"><b>Agenda</b><span>Nada marcado</span></span></button>';
-  if (prox){
-    let quando = '';
-    if (prox.e.hora){
-      const p = prox.e.hora.split(':').map(Number), dt = parse(prox.data); dt.setHours(p[0], p[1]);
-      const hrs = (dt - agora) / 3600000;
-      quando = hrs < 1 ? 'em ' + Math.max(1, Math.round(hrs * 60)) + ' min' : hrs < 24 ? 'em ' + Math.round(hrs) + ' h' : 'em ' + Math.round(hrs / 24) + (Math.round(hrs / 24) === 1 ? ' dia' : ' dias');
-    }
-    const dl = prox.data === hoje() ? 'Hoje' : prox.data === addDays(hoje(), 1) ? 'Amanhã' : DIAS[idxOf(parse(prox.data))] + ' ' + fmtD(prox.data);
-    const tit = (prox.e.titulo || TIPOS[prox.e.tipo] || '').split(' · ')[0];
-    apptRow = `<button class="srow appt3 t-${prox.e.tipo}" data-act="tabag"><i aria-hidden="true"></i><span class="ax"><b>${esc(tit)}</b><span>${dl}${prox.e.hora ? ', ' + esc(prox.e.hora) : ''}</span>${quando ? '<em>' + quando + '</em>' : ''}</span></button>`;
+  const prox = ocorrencias(hoje(), addDays(hoje(), 30)).find(o => o.data > hoje() || !o.e.hora || o.e.hora >= hhmm);
+  const cards = [];
+  let serTot = 0, serOk = 0, dots = '';
+  t.itens.forEach(e => { const r = getEx(L, e); r.series.forEach(s => { serTot++; if (s.ok) serOk++; dots += `<i class="${s.ok ? 'on' : ''}"></i>`; }); });
+  const volHoje = volDia(L);
+  const atual = t.itens.findIndex(e => !exFeito(L, e));
+  const swapBtn = `<button class="sswap" data-act="tpick" aria-label="Trocar treino">${ICON.swap}</button>`;
+  if (t.itens.length){
+    let clk = '<span class="led amb dim">0:00</span>';
+    if (L.inicio && !L.fim) clk = `<span class="led amb" id="tdur">${fmtDur(Date.now() - L.inicio)}</span>`;
+    else if (L.inicio && L.fim) clk = `<span class="led amb">${fmtDur(L.fim - L.inicio)}</span>`;
+    let cont = '', cta;
+    if (atual >= 0){
+      const e = t.itens[atual], r = getEx(L, e), nOk = r.series.filter(s => s.ok).length;
+      const kg = r.series[Math.min(nOk, r.series.length - 1)].kg || kgPadrao(e, r, nOk);
+      cont = `<div class="snext"><span class="led wht">${pad2(atual + 1)}</span><span class="lm"><small>${nOk ? 'Continuar' : exOk ? 'Próximo exercício' : 'Comece por'}</small><b>${esc(e.nome)}</b><span>Série ${Math.min(nOk + 1, r.series.length)} de ${r.series.length}${kg ? ', ' + esc(kg) + ' kg' : ''}</span></span></div>`;
+      cta = `<button class="scta" data-act="modo" data-ex="${e.id}">▶ ${L.inicio ? 'Continuar no modo treino' : 'Abrir modo treino'}</button>`;
+    } else if (!L.fim) cta = '<button class="scta" data-act="tfim">Finalizar e ver o resumo</button>';
+    else cta = '<button class="scta ghost" data-act="modo">Ver resumo do treino</button>';
+    const tlink = !L.inicio ? '<button class="slink" data-act="tedit">lançar tempo à mão</button>' : !L.fim ? '<button class="slink" data-act="tfim">finalizar treino</button>' : '<button class="slink" data-act="tedit">editar tempo</button>';
+    cards.push(`<section class="scard red"><div class="shead"><div><span class="k">${isToday ? 'Treino de hoje' : 'Treino de ' + DIAS_F[i].toLowerCase()}${trocado ? ' (trocado)' : ''}</span><h2 class="stt" style="font-size:${fs}px">${esc(nome)}</h2></div>${swapBtn}</div>
+      <div class="board"><div class="sc3"><div class="tm"><span>FEITOS</span><b class="led">${exOk}</b></div><div class="tm clk">${clk}<span>TEMPO</span></div><div class="tm"><span>FALTAM</span><b class="led wht">${t.itens.length - exOk}</b></div></div>
+        <div class="ldots">${dots}</div><div class="bcap">${serOk} DE ${serTot} SÉRIES · <span id="vvol">${Math.round(volHoje).toLocaleString('pt-BR')}</span> KG</div></div>
+      ${cont}<div class="sgrow"></div>${cta}${tlink}</section>`);
+  } else {
+    const ats = [...(t.cardio ? [{ act:'cardio', id:'', nome:t.cardio, on:!!L.cardio }] : []), ...(t.atividades||[]).map(a => ({ act:'ativ', id:a, nome:a, on:!!L.ativ[a] }))];
+    const txt = ats.map(a => a.nome).join(' ');
+    const ic = /futsal|futebol/i.test(txt) ? ICONE_TREINO.bola : t.cardio ? ICONE_TREINO.cardio : ICONE_TREINO.descanso;
+    cards.push(`<section class="scard ${ats.length ? 'red' : 'dark'}"><div class="shead"><div><span class="k">${isToday ? 'Hoje' : DIAS_F[i]}</span><h2 class="stt" style="font-size:${fs}px">${esc(nome)}</h2></div>${swapBtn}</div>
+      <div class="sic">${ic}</div>${ats.length ? ats.map(a => `<button class="stog ${a.on ? 'on' : ''}" data-act="${a.act}" data-id="${esc(a.id)}"><span class="c">${CHECK}</span>${esc(a.nome)}</button>`).join('') : '<p class="sp">Dia livre. Descanse ou faça um cardio leve.</p>'}<div class="sgrow"></div></section>`);
   }
+  // próxima refeição
+  const refs = P().refeicoes, pend = refs.filter(m => !L.ref[m.id]);
+  const prxRef = pend.find(m => !m.hora || m.hora >= hhmm) || pend[0];
+  if (refs.length) cards.push(prxRef
+    ? `<section class="scard dark"><span class="k">Próxima refeição${prxRef.hora ? ', ' + esc(prxRef.hora) : ''}</span><h2 class="stt">${esc(prxRef.nome)}</h2><ul class="slist">${(prxRef.itens||[]).map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+       <div class="sgrow"></div><div class="sfoot"><span class="led grn">${refOk}/${refs.length}</span><span>refeições hoje</span></div><button class="scta green" data-act="ref" data-id="${prxRef.id}">Comi</button></section>`
+    : `<section class="scard dark"><span class="k">Alimentação</span><h2 class="stt">Tudo certo</h2><p class="sp">Todas as ${refs.length} refeições marcadas.</p><div class="sgrow"></div><div class="sfoot"><span class="led grn">${refs.length}/${refs.length}</span><span>refeições hoje</span></div></section>`);
+  // suplementos
   const supPend = sup.filter(x => !L.supl[x.id]);
-  const supRow = !sup.length ? '' : supPend.length
-    ? `<div class="srow suprow"><span class="ax"><b>Suplementos <span class="cnt3">${sup.length - supPend.length}/${sup.length}</span></b><span>${esc(supPend[0].nome)}</span></span><button class="tomei" data-act="supl" data-id="${supPend[0].id}" aria-label="Marcar ${esc(supPend[0].nome)} como tomado">Tomei</button></div>`
-    : `<div class="srow suprow ok"><span class="ax"><b>Suplementos <span class="cnt3">${sup.length}/${sup.length}</span></b><span>Todos tomados</span></span></div>`;
-  const proxTile = `<div class="tile side">${apptRow}${supRow}</div>`;
+  if (sup.length) cards.push(`<section class="scard dark"><span class="k">Suplementos</span><h2 class="stt">${supPend.length ? 'Faltam ' + supPend.length : 'Todos tomados'}</h2>
+    <div class="ssup">${supPend.slice(0, 4).map(x => `<div class="ssr"><span class="lm"><b>${esc(x.nome)}</b><span>${esc([x.dose, x.hora].filter(Boolean).join(', '))}</span></span><button class="mini2" data-act="supl" data-id="${x.id}">Tomei</button></div>`).join('')}</div>
+    <div class="sgrow"></div><div class="sfoot"><span class="led grn">${sup.length - supPend.length}/${sup.length}</span><span>tomados hoje</span></div></section>`);
+  // água
+  const aguaF = (L.agua || 0) / meta;
+  cards.push(`<section class="scard blue"><span class="k">Água</span><div class="sagua"><div><b class="led blu big">${fmtN((L.agua||0)/1000)}</b><span class="bcap">DE ${fmtN(meta/1000)} L</span></div>${anelSvg([{ r:18, cor:'#4C8DFF', f:aguaF, sw:5 }], 96, 'sring')}</div>
+    <div class="sgrow"></div><div class="s3"><button class="scta blue2" data-act="agua" data-v="250">+250</button><button class="scta blue2" data-act="agua" data-v="500">+500</button><button class="scta ghost" data-act="agua" data-v="-250" aria-label="Tirar 250 ml">−</button></div></section>`);
+  // compromisso
+  if (prox){
+    const c = contagem(prox), tit = prox.e.titulo || TIPOS[prox.e.tipo] || '';
+    const dl = prox.data === hoje() ? 'Hoje' : prox.data === addDays(hoje(), 1) ? 'Amanhã' : DIAS_F[idxOf(parse(prox.data))] + ', ' + fmtD(prox.data);
+    cards.push(`<section class="scard gold"><span class="k">Próximo compromisso</span><h2 class="stt">${esc(tit)}</h2>
+      <div class="board"><div class="sc2"><div class="tm"><span>${c.u || 'QUANDO'}</span><b class="led amb">${c.n}</b></div><div class="tm"><span>HORA</span><b class="led wht">${esc(prox.e.hora || '--:--')}</b></div></div></div>
+      <p class="sp">${dl}${prox.e.local ? ', ' + esc(prox.e.local) : ''}</p><div class="sgrow"></div><button class="scta dark2" data-act="tabag">Ver agenda</button></section>`);
+  }
+  h += stories('st-hoje', cards);
 
-  h += `<section class="bento2">
-    <div class="tile wide palco ${t.itens.length ? '' : 'livre'}">
-      <div class="pl">
-        <span class="hk">${isToday ? 'Treino de hoje' : 'Treino de ' + DIAS_F[i].toLowerCase()}${trocado ? ' (trocado)' : ''}</span>
-        <h1 class="hn" style="font-size:${fs}px">${esc(nome)}</h1>
-        ${pills}
-        <button class="swap" data-act="tpick">${ICON.swap}<span>Trocar</span></button>
-      </div>
-      ${figura}
-      <div class="pfoot"><span>${t.itens.length ? exOk + ' de ' + t.itens.length + ' exercícios' : 'Dia'}</span><span class="dpb"><i style="width:${pct}%"></i></span><b>Dia ${pct}%</b></div>
-    </div>
-    ${t.itens.length || t.cardio ? `<div class="tile"><div class="th"><span class="sl">Tempo</span>${L.inicio && !L.fim ? '<i class="live" aria-hidden="true"></i>' : ''}</div><span class="sv">${tVal}</span><span class="ss">${tSub}</span>${tAct}</div>
-    <div class="tile"><span class="sl">Volume</span><span class="sv" id="vvol">${Math.round(volHoje).toLocaleString('pt-BR')}</span><span class="ss ${vDelta != null ? (vDelta >= 0 ? 'up' : 'dn') : ''}">${vSub}</span><div class="bars">${bars}</div></div>` : ''}
-    ${next}
-    ${agua}
-    ${proxTile}
-  </section>`;
+  // ---- anéis do dia ----
+  const fT = t.itens.length ? exOk / t.itens.length : (() => { const a = [t.cardio ? !!L.cardio : null, ...(t.atividades||[]).map(x => !!L.ativ[x])].filter(x => x !== null); return a.length ? a.filter(Boolean).length / a.length : 0; })();
+  const dT = refs.length + sup.length, dOk = refOk + (sup.length - supPend.length);
+  const tLbl = t.itens.length ? `${exOk}/${t.itens.length}` : Math.round(fT * 100) + '%';
+  h += `<div class="rings3">
+    <button class="rg" data-act="stgo" data-id="st-hoje" data-i="0">${anelSvg([{ r:18, cor:CORT, f:fT }], 42)}<span><b class="led">${tLbl}</b><small>Treino</small></span></button>
+    <button class="rg" data-act="stgo" data-id="st-hoje" data-i="${cards.length - (prox ? 2 : 1)}">${anelSvg([{ r:18, cor:CORA, f:aguaF }], 42)}<span><b class="led blu">${fmtN((L.agua||0)/1000)}L</b><small>Água</small></span></button>
+    <button class="rg" data-act="stgo" data-id="st-hoje" data-i="1">${anelSvg([{ r:18, cor:CORD, f: dT ? dOk / dT : 0 }], 42)}<span><b class="led grn">${dOk}/${dT}</b><small>Dieta</small></span></button>
+  </div>`;
+
+  // ---- falta hoje ----
+  const falta = [];
+  if ((L.agua || 0) < meta) falta.push(`<div class="fit"><i style="background:${CORA}"></i><span class="lm"><b>Água</b><span>Faltam ${fmtN((meta - (L.agua||0)) / 1000)} L</span></span><button class="mini2 blue" data-act="agua" data-v="250">+250</button></div>`);
+  pend.filter(m => m !== prxRef).slice(0, 2).forEach(m => falta.push(`<div class="fit"><i style="background:${CORD}"></i><span class="lm"><b>${esc(m.nome)}</b><span>${esc((m.itens||[]).join(', '))}</span></span>${m.hora ? `<em>${esc(m.hora)}</em>` : ''}</div>`));
+  supPend.slice(0, 2).forEach(x => falta.push(`<div class="fit"><i style="background:${CORD}"></i><span class="lm"><b>${esc(x.nome)}</b><span>${esc(x.hora || x.dose || '')}</span></span><button class="mini2" data-act="supl" data-id="${x.id}">Tomei</button></div>`));
+  if (isToday && falta.length) h += `<h2 class="sh2">Falta hoje</h2><div class="fcard">${falta.slice(0, 5).join('')}</div>`;
 
   if (pickOpen){
     let pk = '<p class="tip">Escolha qual treino do plano você vai fazer hoje. O histórico e as cargas acompanham o treino escolhido.</p>';
@@ -777,7 +813,21 @@ function renderPlano(){
 
   if (planSeg === 'treino'){
     const t = P().treinos[planDay];
-    h += '<div class="chips">' + DIAS.map((n,k) => `<button class="chip ${k===planDay?'on':''}" data-act="pday" data-id="${k}">${n}</button>`).join('') + '</div>';
+    const ini = addDays(hoje(), -idxOf(new Date()));
+    h += '<div class="wk3">' + DIAS.map((n,k) => { const f = diaFrac(addDays(ini, k)); return `<button class="${k===planDay?'on':''}" data-act="stgo" data-id="st-plano" data-i="${k}" aria-label="${DIAS_F[k]}"><span>${n}</span>${tri3(f[0], f[1], f[2])}</button>`; }).join('') + '</div>';
+    const cardsP = DIAS_F.map((nm, k) => {
+      const tt = P().treinos[k] || { nome:'', itens:[] };
+      const durs = Object.keys(S).filter(x => x.startsWith('dia:') && S[x].tnome === tt.nome && S[x].inicio && S[x].fim).map(x => S[x].fim - S[x].inicio).filter(v => v > 5*60000 && v < 4*3600000);
+      const med = durs.length ? fmtDur(durs.reduce((a, b) => a + b, 0) / durs.length) : '--:--';
+      const ser = tt.itens.reduce((a, e) => a + (parseInt(e.series) || 0), 0);
+      const linhas = tt.itens.length ? tt.itens.map((e, j) => `<div class="brow"><span class="led amb">${pad2(j + 1)}</span><b>${esc(e.nome)}</b><span class="led">${esc(e.series)}×${esc(e.reps)}</span></div>`).join('')
+        : [tt.cardio, ...(tt.atividades||[])].filter(Boolean).map(a => `<div class="brow"><span class="led grn">●</span><b>${esc(a)}</b></div>`).join('') || '<div class="brow"><b class="muted">Descanso</b></div>';
+      return `<section class="scard ${k === planDay ? 'red' : 'dark'}"><span class="k">${nm}${tt.itens.length ? ' · ' + tt.itens.length + ' exercícios' : ''}</span><h2 class="stt">${esc(tt.nome || 'Descanso')}</h2>
+        <div class="board">${linhas}</div>${tt.itens.length ? `<div class="s2b"><div class="board tc"><span>SÉRIES</span><b class="led">${ser}</b></div><div class="board tc"><span>TEMPO MÉDIO</span><b class="led amb">${med}</b></div></div>` : ''}
+        <div class="sgrow"></div><button class="scta ${k === planDay ? 'ghost2' : 'ghost'}" data-act="pday" data-id="${k}">${k === planDay ? 'Editando este dia ↓' : 'Editar este dia'}</button></section>`;
+    });
+    h += stories('st-plano', cardsP, planDay);
+    h += `<h2 class="mh" id="editor">Editando: ${DIAS_F[planDay]}</h2>`;
     h += `<div class="f"><label>Nome do treino<input data-pf="tnome" value="${esc(t.nome)}"></label></div>`;
     h += `<div class="f"><label>Cardio (deixe vazio se não tiver)<input data-pf="tcardio" value="${esc(t.cardio||'')}" placeholder="Ex.: Cardio 30 min na bike"></label></div>`;
     h += `<div class="f"><label>Outras atividades (separe por vírgula)<input data-pf="tativ" value="${esc((t.atividades||[]).join(', '))}" placeholder="Ex.: Futsal"></label></div>`;
@@ -822,12 +872,37 @@ function renderProg(){
   const pesos = M.filter(m => m.peso != null);
   const last = pesos[pesos.length-1], first = pesos[0];
   let h = '<h1>Progresso</h1>';
+  const metaP = P().metaPeso || 95;
+  const dksP = Object.keys(S).filter(k => k.startsWith('dia:') && k.slice(4) <= hoje()).sort();
+  const cardsG = [];
   if (last){
-    const diff = last.peso - first.peso;
-    h += `<div class="big"><span class="bn">${fmtN(last.peso)}</span><span class="bu">kg</span></div>`;
-    h += `<p class="sub">${pesos.length > 1 ? (diff > 0 ? '+' : '') + fmtN(diff) + ' kg desde ' + fmtD(first.data) : 'Primeiro registro em ' + fmtD(last.data)}</p>`;
+    const diff = last.peso - first.peso, falta = first.peso - metaP, fMeta = falta > 0 ? Math.max(0, Math.min(1, (first.peso - last.peso) / falta)) : 1;
+    const pp = pesos.slice(-10); let linha = '';
+    if (pp.length > 1){
+      const mn = Math.min(...pp.map(m => m.peso)), mx = Math.max(...pp.map(m => m.peso)), rg = (mx - mn) || 1;
+      const X = k => (12 + k * 266 / (pp.length - 1)).toFixed(1), Y = v => (10 + (mx - v) / rg * 80).toFixed(1);
+      linha = `<svg class="sline" viewBox="0 0 290 100" aria-hidden="true"><polyline points="${pp.map((m, k) => X(k) + ',' + Y(m.peso)).join(' ')}"/>${pp.map((m, k) => `<circle cx="${X(k)}" cy="${Y(m.peso)}" r="5"/>`).join('')}</svg>`;
+    } else linha = '<p class="sp">Registre de novo daqui uns dias pra ver a curva.</p>';
+    cardsG.push(`<section class="scard red"><span class="k">Peso atual</span>
+      <div class="board spes"><div><b class="led big2">${fmtN(last.peso)}</b><span class="bcap ${diff <= 0 ? 'g' : ''}">${pesos.length > 1 ? (diff <= 0 ? '▼ ' : '▲ ') + fmtN(Math.abs(diff)) + ' KG DESDE ' + fmtD(first.data) : 'PRIMEIRO REGISTRO'}</span></div>
+        <button class="smeta" data-act="meta" aria-label="Mudar meta de peso">${anelSvg([{ r:18, cor:CORD, f:fMeta, sw:5 }], 76)}<b>${Math.round(fMeta * 100)}%</b></button></div>
+      <span class="sp r">da meta de ${fmtN(metaP)} kg (toque no anel pra mudar)</span>${linha}<div class="sgrow"></div><button class="scta" data-act="goform">+ Registrar peso</button></section>`);
   }
-  h += chart([{ pts: pesos.map(m => ({ l:fmtD(m.data), v:m.peso })) }]);
+  // recordes: melhor carga de cada exercício
+  const best = {};
+  dksP.forEach(k => Object.values(S[k].treino||{}).forEach(r => (r.series||[]).forEach(x => { if (!x.ok) return; const v = num(x.kg); if (v != null && (!best[r.nome] || v > best[r.nome].kg)) best[r.nome] = { kg:v, data:k.slice(4) }; })));
+  const bl = Object.entries(best).sort((a, b) => b[1].data < a[1].data ? -1 : 1).slice(0, 6);
+  if (bl.length) cardsG.push(`<section class="scard dark"><span class="k">Melhores cargas</span><h2 class="stt">Recordes</h2><div class="board">${bl.map(([n, v]) => `<div class="brow"><b>${esc(n)}</b><span class="led amb">${fmtN(v.kg)}</span></div>`).join('')}</div><div class="sgrow"></div></section>`);
+  const jogosC = []; dksP.forEach(k => { const J = S[k].jogo || {}; Object.keys(J).forEach(a => { if (J[a]) jogosC.push(J[a]); }); });
+  if (jogosC.length){ const g = jogosC.reduce((a, j) => a + (j.gols || 0), 0), ds = jogosC.filter(j => j.dor != null), md = ds.length ? ds.reduce((a, j) => a + j.dor, 0) / ds.length : null;
+    cardsG.push(`<section class="scard dark"><span class="k">Futsal</span><h2 class="stt">Seus jogos</h2><div class="board"><div class="sc3"><div class="tm"><span>JOGOS</span><b class="led wht">${jogosC.length}</b></div><div class="tm"><span>GOLS</span><b class="led grn">${g}</b></div><div class="tm"><span>DOR MÉDIA</span><b class="led amb">${md != null ? fmtN(md) : '–'}</b></div></div></div><div class="sgrow"></div></section>`); }
+  h += stories('st-prog', cardsG);
+  const mes = hoje().slice(0, 7), dm = dksP.filter(k => k.slice(4, 11) === mes);
+  const treinosMes = dm.filter(k => { const X = S[k]; return X.cardio || Object.values(X.ativ||{}).some(Boolean) || Object.values(X.treino||{}).some(r => (r.series||[]).some(x => x.ok)); }).length;
+  const prMes = dm.reduce((a, k) => a + recordes(S[k], k.slice(4)).length, 0);
+  const aguas = dm.map(k => S[k].agua || 0).filter(v => v > 0), mAgua = aguas.length ? aguas.reduce((a, b) => a + b, 0) / aguas.length / 1000 : 0;
+  h += `<div class="rings3 stat"><div class="rg"><span><b class="led amb">${prMes}</b><small>Recordes no mês</small></span></div><div class="rg"><span><b class="led">${treinosMes}</b><small>Treinos no mês</small></span></div><div class="rg"><span><b class="led blu">${fmtN(mAgua)}L</b><small>Média de água</small></span></div></div>`;
+  h += '<h2 class="mh">Peso</h2>' + chart([{ pts: pesos.map(m => ({ l:fmtD(m.data), v:m.peso })) }]);
   const cint = M.filter(m => m.cintura != null);
   if (cint.length > 1) h += '<p class="cap" style="margin-top:14px">Cintura (cm)</p>' + chart([{ pts: cint.map(m => ({ l:fmtD(m.data), v:m.cintura })), color:'var(--warn)' }]);
 
@@ -835,7 +910,7 @@ function renderProg(){
 
   h += `<h2 class="mh">Nova medida</h2><div class="fields">
     <label class="full">Data<input type="date" id="m_data" value="${hoje()}"></label>
-    <label>Peso (kg)<input inputmode="decimal" id="m_peso"></label>
+    <label>Peso (kg)<input inputmode="decimal" id="m_peso" placeholder="Ex.: 102,6"></label>
     <label>Cintura (cm)<input inputmode="decimal" id="m_cin"></label>
     <label>Braço (cm)<input inputmode="decimal" id="m_bra"></label>
     <label>Peito (cm)<input inputmode="decimal" id="m_pei"></label>
@@ -915,8 +990,23 @@ function classPA(p){
 }
 function renderSaude(){
   let h = '<h1>Saúde</h1>';
+  const dores = []; Object.keys(S).filter(k => k.startsWith('dia:')).sort().forEach(k => { const J = S[k].jogo || {}; Object.keys(J).forEach(a => { if (J[a] && J[a].dor != null) dores.push({ data:k.slice(4), dor:J[a].dor }); }); });
+  const cardsS = [];
+  if (dores.length){
+    const ul = dores[dores.length - 1].dor, md = dores.reduce((a, x) => a + x.dor, 0) / dores.length, mx = Math.max(...dores.map(x => x.dor));
+    const dd = dores.slice(-8), cor = v => v >= 7 ? '#FF4A3F' : v >= 4 ? '#F2C230' : '#3DD68C';
+    const X = k => dd.length > 1 ? (12 + k * 266 / (dd.length - 1)).toFixed(1) : 145, Y = v => (8 + (10 - v) * 5.4).toFixed(1);
+    const tend = dd.length > 1 ? (dd[dd.length - 1].dor < dd[0].dor ? `Melhorando: de ${dd[0].dor} para ${dd[dd.length - 1].dor} em ${dd.length} jogos.` : dd[dd.length - 1].dor > dd[0].dor ? `Piorou: de ${dd[0].dor} para ${dd[dd.length - 1].dor}. Vale falar com a fisio.` : 'Estável nos últimos jogos.') : 'Registre mais jogos pra ver a tendência.';
+    cardsS.push(`<section class="scard dark"><span class="k">Pubalgia</span><h2 class="stt">Dor depois do futsal</h2>
+      <div class="board"><div class="sc3"><div class="tm"><span>ÚLTIMO JOGO</span><b class="led" style="color:${cor(ul)}">${ul}</b></div><div class="tm"><span>MÉDIA</span><b class="led amb">${fmtN(md)}</b></div><div class="tm"><span>MAIOR</span><b class="led">${mx}</b></div></div></div>
+      <svg class="sline dor" viewBox="0 0 290 70" aria-hidden="true">${dd.length > 1 ? `<polyline points="${dd.map((x, k) => X(k) + ',' + Y(x.dor)).join(' ')}"/>` : ''}${dd.map((x, k) => `<circle cx="${X(k)}" cy="${Y(x.dor)}" r="5" style="fill:${cor(x.dor)}"/>`).join('')}</svg>
+      <p class="sp">${tend}</p><div class="sgrow"></div></section>`);
+  } else cardsS.push('<section class="scard dark"><span class="k">Pubalgia</span><h2 class="stt">Dor depois do futsal</h2><p class="sp">Depois do futsal de quinta, marque o jogo na tela Hoje e registre a dor de 0 a 10. O acompanhamento aparece aqui.</p><div class="sgrow"></div></section>');
+  const lesoes = ((S.saude||{}).notas || '').split('\n').map(x => x.trim()).filter(Boolean);
+  if (lesoes.length) cardsS.push(`<section class="scard red"><span class="k">Histórico</span><h2 class="stt">Lesões e observações</h2><div class="board">${lesoes.slice(0, 7).map(x => `<div class="brow"><span class="led amb">●</span><b>${esc(x)}</b></div>`).join('')}</div><div class="sgrow"></div><button class="scta" data-act="golesao">Editar</button></section>`);
+  h += stories('st-saude', cardsS);
   h += '<h2 class="mh">Notificações</h2><div class="panel" style="padding-top:12px">' + notifHtml() + '</div>';
-  h += `<h2 class="mh">Lesões e observações</h2><div class="f" style="margin-top:0"><textarea rows="5" data-f="snotas">${esc((S.saude||{}).notas||'')}</textarea></div>`;
+  h += `<h2 class="mh" id="lesoes">Lesões e observações</h2><div class="f" style="margin-top:0"><textarea rows="5" data-f="snotas">${esc((S.saude||{}).notas||'')}</textarea></div>`;
   h += `<h2 class="mh">Conta</h2><p class="muted small">${esc(user && user.email || '')}</p><button class="btn danger" data-act="logout">Sair</button>`;
   VIEW.innerHTML = h;
 }
@@ -942,9 +1032,8 @@ function evtHtml(o, rem){
 }
 function renderAgenda(){
   const h0 = hoje();
-  let h = '<h1>Agenda</h1>';
-  if (!agendaForm) h += '<button class="btn primary" data-act="aform">+ Novo compromisso</button>';
-  else h += `<h2 class="mh">Novo compromisso</h2><div class="fields">
+  let h = `<div class="thead"><h1>Agenda</h1>${agendaForm ? '' : '<button class="schip" data-act="aform">+ Novo</button>'}</div>`;
+  if (agendaForm) h += `<h2 class="mh">Novo compromisso</h2><div class="fields">
     <label>Tipo<select id="a_tipo">${Object.keys(TIPOS).map(k => `<option value="${k}">${TIPOS[k]}</option>`).join('')}</select></label>
     <label>Título<input id="a_tit" placeholder="Ex.: Ortopedista"></label>
     <label>Data<input type="date" id="a_data" value="${h0}"></label>
@@ -954,6 +1043,17 @@ function renderAgenda(){
     <label class="full ckl"><input type="checkbox" id="a_sem">Repetir toda semana</label></div>
     <div class="tbtns"><button class="btn" data-act="aformx">Cancelar</button><button class="btn primary" data-act="aadd">Salvar</button></div>`;
   const prox = ocorrencias(h0, addDays(h0, 30));
+  const agora = new Date(), hhmm = pad2(agora.getHours()) + ':' + pad2(agora.getMinutes());
+  const futuros = prox.filter(o => o.data > h0 || !o.e.hora || o.e.hora >= hhmm).slice(0, 5);
+  const fisios = (S.agenda||[]).filter(e => e.tipo === 'fisio' && !e.semanal), fFeitas = fisios.filter(e => e.data < h0 || (e.data === h0 && (e.hora || '00:00') < hhmm)).length;
+  const cardsA = futuros.map((o, k) => {
+    const c = contagem(o), dl = o.data === h0 ? 'Hoje' : o.data === addDays(h0, 1) ? 'Amanhã' : DIAS_F[idxOf(parse(o.data))] + ', ' + fmtD(o.data);
+    const ring = o.e.tipo === 'fisio' && fisios.length ? `<div class="sring2">${anelSvg([{ r:18, cor: k === 0 ? '#1A1200' : '#F2C230', f: fFeitas / fisios.length }], 46)}<span><b>${fFeitas} de ${fisios.length}</b><small>sessões de fisio feitas</small></span></div>` : '';
+    return `<section class="scard ${k === 0 ? 'gold' : 'dark'}"><span class="k">${k === 0 ? 'Próximo compromisso' : 'Depois'}</span><h2 class="stt">${esc(o.e.titulo || TIPOS[o.e.tipo])}</h2>
+      <div class="board"><div class="sc2"><div class="tm"><span>${c.u || 'QUANDO'}</span><b class="led amb">${c.n}</b></div><div class="tm"><span>HORA</span><b class="led wht">${esc(o.e.hora || '--:--')}</b></div></div></div>
+      <p class="sp">${dl}${o.e.local ? ', ' + esc(o.e.local) : ''}${o.e.obs ? '. ' + esc(o.e.obs) : ''}</p>${ring}<div class="sgrow"></div></section>`;
+  });
+  h += stories('st-agenda', cardsA);
   h += '<h2 class="mh">Próximos 30 dias</h2>';
   h += prox.length ? prox.map(o => evtHtml(o, true)).join('') : '<p class="muted">Nada marcado.</p>';
   const pass = (S.agenda||[]).filter(e => !e.semanal && e.data < h0).sort((a,b) => a.data < b.data ? 1 : -1).slice(0,10);
@@ -1105,6 +1205,7 @@ function render(){
   else if (tab === 'plano') renderPlano();
   else if (tab === 'prog') renderProg();
   else renderSaude();
+  initTracks();
 }
 function keepScroll(fn){ const y = window.scrollY; fn(); window.scrollTo(0, y); }
 
@@ -1169,6 +1270,10 @@ VIEW.addEventListener('click', async e => {
       if (v == null) return; const n = num(v); if (n == null) return;
       ss[campo] = campo === 'kg' ? String(n).replace('.', ',') : String(Math.round(n)); rr.nome = ee.nome; touch(cur); render(); return;
     }
+    case 'stgo': irCard(id, parseInt(b.dataset.i)); return;
+    case 'meta': { const v = prompt('Meta de peso (kg)', String(P().metaPeso || 95).replace('.', ',')); if (v == null) return; const n = num(v); if (!n || n < 40 || n > 250) return; P().metaPeso = n; save('plano'); keepScroll(render); return; }
+    case 'goform': { const el = $('#m_peso'); if (el){ el.scrollIntoView({ behavior:'smooth', block:'center' }); setTimeout(() => el.focus(), 350); } return; }
+    case 'golesao': { const el = $('#lesoes'); if (el) el.scrollIntoView({ behavior:'smooth', block:'start' }); return; }
     case 'tpick': pickOpen = !pickOpen; keepScroll(render); return;
     case 'tclose': pickOpen = false; keepScroll(render); return;
     case 'tset': { const k = parseInt(id); if (k === idxOf(parse(cur))) delete L.treinoDia; else L.treinoDia = k; pickOpen = false; touch(cur); render(); window.scrollTo(0,0); return; }
@@ -1200,7 +1305,7 @@ VIEW.addEventListener('click', async e => {
     case 'agua': L.agua = Math.max(0, (L.agua||0) + parseInt(b.dataset.v)); touch(cur); keepScroll(render); return;
 
     case 'pseg': planSeg = id; render(); return;
-    case 'pday': planDay = parseInt(id); render(); return;
+    case 'pday': { planDay = parseInt(id); trackPos['st-plano'] = undefined; render(); const ed = $('#editor'); if (ed && b.closest('.scard')) ed.scrollIntoView({ behavior:'smooth', block:'start' }); return; }
     case 'eup': if (i > 0){ const x = t.itens.splice(i,1)[0]; t.itens.splice(i-1,0,x); save('plano'); keepScroll(render); } return;
     case 'edown': if (i < t.itens.length-1){ const x = t.itens.splice(i,1)[0]; t.itens.splice(i+1,0,x); save('plano'); keepScroll(render); } return;
     case 'edel': if (confirm('Remover "' + t.itens[i].nome + '"?')){ t.itens.splice(i,1); save('plano'); keepScroll(render); } return;
