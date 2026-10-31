@@ -1263,6 +1263,7 @@ function kgPadrao(e, r, k){
 /* ---------- render ---------- */
 function render(){
   document.querySelectorAll('.tabbtn').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  try { if (!modo) NAV.ir(ABAS.indexOf(tab)); } catch(_){}
   if (modo){ $('#tabbar').hidden = true; document.body.classList.add('em-modo'); VIEW.innerHTML = renderModo(); tickModo(); return; }
   document.body.classList.remove('em-modo'); if (user) $('#tabbar').hidden = false;
   if (tab === 'hoje') renderHoje();
@@ -1285,7 +1286,76 @@ function topoVinho(){
 function keepScroll(fn){ const y = window.scrollY; fn(); window.scrollTo(0, y); }
 
 /* ---------- eventos ---------- */
-document.querySelectorAll('.tabbtn').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; if (tab === 'hoje') cur = hoje(); render(); window.scrollTo(0,0); }));
+document.querySelectorAll('.tabbtn').forEach(b => b.addEventListener('click', () => { irAba(b.dataset.tab); }));
+
+/* ---------- barra de baixo: bolha + curva com LED, com arrastar entre abas ---------- */
+const ABAS = ['hoje', 'plano', 'agenda', 'prog', 'saude'];
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const NAV = (() => {
+  const bar = $('#tabbar'), inn = bar.querySelector('.in'), svg = bar.querySelector('.tshape'), fill = bar.querySelector('.tfill'), edge = bar.querySelector('.tedge'), led = bar.querySelector('.tled'), bub = bar.querySelector('.tbub'), btns = [...bar.querySelectorAll('.tabbtn')];
+  let p = ABAS.indexOf(tab), v = 0, alvo = p, raf = null, mostrado = -1;
+  const d = 16;
+  function draw(){
+    const W = inn.clientWidth, H = Math.ceil(svg.getBoundingClientRect().height); if (!W || !H) return;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    const s = W / 5, x = s * (p + .5), st = Math.min(1, Math.abs(v) * 7), hw = 58 + st * 26, dep = 36 - st * 6;
+    const curva = `C${x-hw+20} ${d} ${x-hw+22} ${d+dep} ${x} ${d+dep} C${x+hw-22} ${d+dep} ${x+hw-20} ${d} ${x+hw} ${d}`;
+    fill.setAttribute('d', `M-2 ${d} L${x-hw} ${d} ${curva} L${W+2} ${d} L${W+2} ${H} L-2 ${H} Z`);
+    edge.setAttribute('d', `M-2 ${d} L${x-hw} ${d} ${curva} L${W+2} ${d}`);
+    led.setAttribute('d', `M${x-hw} ${d} ${curva}`);
+    bub.style.transform = `translateX(${x}px) scale(${1 - st * .12}, ${1 + st * .06})`;
+    const k = Math.max(0, Math.min(4, Math.round(p)));
+    if (k !== mostrado){ mostrado = k; const sv = btns[k].querySelector('svg'); bub.innerHTML = sv ? sv.outerHTML : ''; }
+  }
+  function step(){
+    const a = (alvo - p) * .09; v = (v + a) * .70; p += v; draw();
+    if (Math.abs(alvo - p) > .001 || Math.abs(v) > .001) raf = requestAnimationFrame(step); else { p = alvo; v = 0; draw(); raf = null; }
+  }
+  function ir(k, vel){ alvo = k; if (vel != null) v = vel; if (RM || mostrado < 0){ p = k; v = 0; draw(); return; } if (!raf) raf = requestAnimationFrame(step); }
+  function seguir(np){ if (raf){ cancelAnimationFrame(raf); raf = null; } v = np - p; p = np; draw(); }
+  new ResizeObserver(draw).observe(inn);
+  return { ir, seguir, get p(){ return p; } };
+})();
+function deslizarEntrada(dir){
+  if (RM || !dir) return;
+  VIEW.style.transition = 'none'; VIEW.style.transform = `translateX(${dir * 36}px)`; VIEW.style.opacity = '.35';
+  requestAnimationFrame(() => requestAnimationFrame(() => { VIEW.style.transition = 'transform .32s cubic-bezier(.22,1,.36,1), opacity .25s'; VIEW.style.transform = ''; VIEW.style.opacity = ''; }));
+}
+function irAba(t, vel){
+  const de = ABAS.indexOf(tab), para = ABAS.indexOf(t);
+  tab = t; if (tab === 'hoje') cur = hoje();
+  NAV.ir(para, vel); render(); window.scrollTo(0, 0); deslizarEntrada(Math.sign(para - de));
+}
+// arrastar a tela pro lado troca de aba (não vale em áreas que já rolam de lado)
+(() => {
+  let sx = null, sy = null, dx = 0, modoArr = 0, lx = 0, lt = 0, vel = 0, i0 = 0;
+  const rolaDeLado = el => { for (; el && el !== document.body; el = el.parentElement){ if (el.matches && el.matches('input,textarea,select,[contenteditable],.tabbar')) return true; if (el.scrollWidth > el.clientWidth + 2){ const o = getComputedStyle(el).overflowX; if (o === 'auto' || o === 'scroll') return true; } } return false; };
+  document.addEventListener('touchstart', e => {
+    if (modo || !user || e.touches.length > 1 || $('#tabbar').hidden || rolaDeLado(e.target)){ sx = null; return; }
+    const t = e.touches[0]; sx = lx = t.clientX; sy = t.clientY; lt = performance.now(); dx = 0; modoArr = 0; vel = 0; i0 = ABAS.indexOf(tab);
+  }, { passive:true });
+  document.addEventListener('touchmove', e => {
+    if (sx === null) return; const t = e.touches[0], mx = t.clientX - sx, my = t.clientY - sy;
+    if (!modoArr){ if (Math.abs(mx) < 10 && Math.abs(my) < 10) return; modoArr = Math.abs(mx) > Math.abs(my) * 1.3 ? 1 : -1; if (modoArr === 1){ VIEW.style.transition = 'none'; } }
+    if (modoArr !== 1) return;
+    e.preventDefault();
+    const W = window.innerWidth, now = performance.now(), dt = Math.max(1, now - lt);
+    vel = -(t.clientX - lx) / W / dt * 16; lx = t.clientX; lt = now;
+    let np = i0 - mx / W; if (np < 0) np *= .3; if (np > 4) np = 4 + (np - 4) * .3;
+    dx = mx; const borda = (np < 0 || np > 4) ? .35 : 1;
+    VIEW.style.transform = `translateX(${mx * borda}px)`; VIEW.style.opacity = String(1 - Math.min(.6, Math.abs(mx) / W * .8));
+    NAV.seguir(np);
+  }, { passive:false });
+  const fim = () => {
+    if (sx === null) return; sx = null; if (modoArr !== 1) return;
+    const W = window.innerWidth; let k = i0;
+    if (dx < -W * .22 || vel > .025) k = Math.min(4, i0 + 1); else if (dx > W * .22 || vel < -.025) k = Math.max(0, i0 - 1);
+    if (k === i0){ VIEW.style.transition = 'transform .3s cubic-bezier(.22,1,.36,1), opacity .25s'; VIEW.style.transform = ''; VIEW.style.opacity = ''; NAV.ir(i0, vel); return; }
+    VIEW.style.transition = 'transform .14s ease-in, opacity .14s'; VIEW.style.transform = `translateX(${(k > i0 ? -1 : 1) * W * .35}px)`; VIEW.style.opacity = '0';
+    setTimeout(() => irAba(ABAS[k], vel), 130);
+  };
+  document.addEventListener('touchend', fim); document.addEventListener('touchcancel', fim);
+})();
 
 VIEW.addEventListener('toggle', e => { const ex = e.target.dataset && e.target.dataset.ex; if (ex) openEx[ex] = e.target.open; }, true);
 
