@@ -670,3 +670,29 @@ body.em-modo #app{padding-bottom:calc(20px + env(safe-area-inset-bottom))}
 .cdet .lm span{font-size:12px;color:var(--muted)}
 .slinks{display:flex;justify-content:center;gap:18px;flex-wrap:wrap}
 .slink.b{opacity:1;font-weight:800}
+
+/* ===================== Topo vinho (some no fundo) ===================== */
+.vtop{margin:calc(-18px - env(safe-area-inset-top)) -16px 0;padding:calc(env(safe-area-inset-top) + 18px) 16px 16px;background:linear-gradient(180deg,#6E2126 0%,#43242A 55%,var(--bg) 100%);color:#fff}
+.vtop h1{margin:0}
+.vtop .dt{color:rgba(255,255,255,.92)}
+.vtop .streak{background:rgba(0,0,0,.25);color:#fff}.vtop .streak b{color:#fff}.vtop .streak svg{fill:#fff}
+.vtop .wk-day{background:rgba(255,255,255,.08);border-color:transparent}
+.vtop .wk-day span{color:#fff;opacity:.9}
+.vtop .wk-day.on{background:#fff;color:#7E2327}.vtop .wk-day.on span{color:#7E2327;opacity:1}
+.vtop .wk-arrow{color:#fff}
+.vtop .rg{background:#2A2B30;border:1px solid rgba(255,255,255,.06)}
+.vtop .rg small{color:#D9D7D2;font-size:12px}
+.vtop .seg{background:rgba(0,0,0,.28)}
+.vtop .seg button{color:rgba(255,255,255,.85)}
+.vtop .seg button.on{background:#fff;color:#5A1A1E}
+.vtop .wk3 button span{color:#fff}
+.vtop .wk3 button.on{background:rgba(255,255,255,.12)}
+.vtop .wk3 svg{background:#232428;border-radius:50%}
+.vtop .schip{background:rgba(0,0,0,.28);border-color:rgba(255,255,255,.25);color:#fff}
+.vtop .thead{margin:0}
+.vtop + .sbars{margin-top:18px}
+/* card principal grafite com borda vermelha */
+.scard.red{background:var(--surface);border:1.5px solid #B8343A;color:var(--ink)}
+.scard.red .snext{background:var(--field)}
+.scard.red .sswap{border-color:var(--line2);background:none;color:var(--ink)}
+.scard.red .stog{background:var(--field)}

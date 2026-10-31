@@ -1270,7 +1270,17 @@ function render(){
   else if (tab === 'plano') renderPlano();
   else if (tab === 'prog') renderProg();
   else renderSaude();
+  topoVinho();
   initTracks();
+}
+function topoVinho(){
+  // junta o cabeçalho da aba (título, dias, abas, anéis) num topo vinho
+  const ok = el => el && (el.matches('h1, .top, .week, .seg, .wk3, .thead'));
+  const kids = []; for (const c of VIEW.children){ if (!ok(c)) break; kids.push(c); }
+  if (!kids.length) return;
+  const w = document.createElement('div'); w.className = 'vtop';
+  VIEW.insertBefore(w, kids[0]); kids.forEach(k => w.append(k));
+  if (tab === 'hoje'){ const r = VIEW.querySelector(':scope > .rings3'); if (r) w.append(r); }
 }
 function keepScroll(fn){ const y = window.scrollY; fn(); window.scrollTo(0, y); }
 
