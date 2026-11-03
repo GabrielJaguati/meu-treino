@@ -822,3 +822,27 @@ body.em-modo #app{padding-bottom:calc(20px + env(safe-area-inset-bottom))}
 .crest .bar i{display:block;height:100%;background:#4C8DFF;border-radius:3px;transition:width .25s linear}
 .crest button{flex:none;border:0;border-radius:9px;background:var(--surface2);color:var(--ink);font-weight:800;font-size:12px;min-height:34px;padding:0 9px}
 .clfoco{align-self:center;margin-top:6px}
+/* histórico, trocar e superset */
+.cmenu{display:flex;gap:6px;padding:0 12px 12px}
+.cmenu button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:36px;border:1px solid var(--line2);border-radius:10px;background:none;color:#D9D7D2;font-weight:700;font-size:12.5px}
+.cmenu svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.csup{display:flex;align-items:center;gap:8px;margin:4px 4px -4px;font-size:11px;color:var(--muted);font-weight:600}
+.csup span{font-weight:800;letter-spacing:.08em;color:#4C8DFF}
+.cexc.sup{border-left:3px solid #4C8DFF}
+.cexc.supa{border-bottom-left-radius:6px;border-bottom-right-radius:6px}
+.cexc.supb{margin-top:-6px;border-top-left-radius:6px;border-top-right-radius:6px}
+.cexc.open{border-color:var(--line2)}
+.csheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:40;animation:fadein .2s}
+.csheet{position:fixed;left:0;right:0;bottom:0;z-index:41;max-height:82vh;overflow-y:auto;background:#24252A;border-radius:24px 24px 0 0;padding:20px 16px calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;animation:sheetup .28s cubic-bezier(.22,1,.36,1);max-width:560px;margin:0 auto}
+.csheet h2{margin:0 40px 0 0;font-family:var(--head);font-weight:400;font-size:26px;line-height:1.05}
+.csx{position:absolute;top:14px;right:12px}
+@keyframes sheetup{from{transform:translateY(100%)}to{transform:none}}
+@keyframes fadein{from{opacity:0}}
+.chs{display:flex;flex-direction:column}
+.chr{display:grid;grid-template-columns:78px 1fr auto;gap:10px;align-items:center;padding:9px 2px;border-top:1px solid var(--line)}
+.chr .d{font-size:12px;font-weight:700;color:var(--muted)}
+.chr .st{font-size:12.5px;color:#D9D7D2}
+.chr .led{font-size:20px}
+.ctxt{display:flex;gap:8px;margin-top:6px}
+.ctxt input{flex:1;min-height:42px;border:1px solid var(--line2);border-radius:11px;background:var(--bg);color:var(--ink);padding:0 12px;font:600 15px Archivo,system-ui,sans-serif}
+.csheet .cli{background:var(--surface)}

@@ -98,6 +98,9 @@ function dia(date){
 }
 function tIdx(date){ const L = S['dia:' + date]; return L && L.treinoDia != null ? L.treinoDia : idxOf(parse(date)); }
 function treinoDo(date){ return P().treinos[tIdx(date)]; }
+// exercício como vai ser feito hoje (pode ter sido trocado só pra esse dia)
+function exHoje(L, e){ const n = e && L && (L.troca||{})[e.id]; return n ? { ...e, nome:n, orig:e.nome } : e; }
+function parDe(L, id){ const sp = (L && L.super) || {}; for (const a in sp){ if (a === id || sp[a] === id) return { a, b: sp[a] }; } return null; }
 function touch(date){
   const L = dia(date);
   const t = treinoDo(date);
@@ -263,7 +266,7 @@ function lastSets(e, before){
   const ks = Object.keys(S).filter(k => k.startsWith('dia:') && k.slice(4) < before).sort().reverse();
   for (const k of ks){
     const t = S[k].treino || {};
-    const r = t[e.id] || Object.values(t).find(x => x.nome === e.nome);
+    const r = (t[e.id] && (!t[e.id].nome || t[e.id].nome === e.nome) ? t[e.id] : null) || Object.values(t).find(x => x.nome === e.nome);
     if (r && (r.series||[]).some(s => s.kg || s.reps)) return r.series;
   }
   return null;
@@ -1114,7 +1117,7 @@ function fecharModo(){
 function renderModo(){
   if (modo.lista) return renderLog();
   const L = dia(cur), t = treinoDo(cur);
-  const e = t.itens.find(x => x.id === modo.ex) || t.itens[0];
+  const e = exHoje(L, t.itens.find(x => x.id === modo.ex) || t.itens[0]);
   const r = getEx(L, e); r.nome = e.nome;
   const k = serieAtual(r), s = r.series[k], last = lastSets(e, cur), sg = sugestao(e, cur), tempo = ehTempo(e);
   if (!s.ok){
@@ -1165,13 +1168,18 @@ function renderLog(){
   const exOk = t.itens.filter(x => exFeito(L, x)).length, todos = exOk === t.itens.length;
   let h = `<div class="clog"><header class="clh"><button class="mx" data-act="msair" aria-label="Sair">${ICON.x}</button><b>${esc(t.nome)}</b><button class="cfin ${todos ? 'pulse' : ''}" data-act="mfinal">Finalizar</button></header>
     <div class="cboard"><div><small>FEITOS</small><span class="led">${exOk}/${t.itens.length}</span></div><div><small>TEMPO</small><span class="led amb" id="mdur">${L.inicio ? fmtDur((L.fim || Date.now()) - L.inicio) : '0:00'}</span></div><div><small>VOLUME KG</small><span class="led wht" id="vvol">${Math.round(volDia(L)).toLocaleString('pt-BR')}</span></div></div>`;
-  t.itens.forEach((e, j) => {
+  const parAtual = parDe(L, modo.ex);
+  t.itens.forEach((e0, j) => {
+    const e = exHoje(L, e0), par = parDe(L, e.id);
     const r = getEx(L, e), done = exFeito(L, e), nOk = r.series.filter(x => x.ok).length, last = lastSets(e, cur), tempo = ehTempo(e);
+    const aberto = e.id === modo.ex || (parAtual && (parAtual.a === e.id || parAtual.b === e.id));
+    if (par && par.a === e.id) h += '<div class="csup"><span>SUPERSET</span> sem descanso entre os dois</div>';
     const lastMax = last ? Math.max(0, ...last.map(x => num(x.kg) || 0)) : 0;
-    const head = `<button class="ceh" data-act="logex" data-ex="${e.id}"><span class="cn">${pad2(j + 1)}</span><span class="lm"><b>${esc(e.nome)}</b><span>${esc(e.series)}×${esc(e.reps)}${lastMax ? ' · último ' + fmtN(lastMax) + ' kg' : ''}${e.obs ? ' · ' + esc(e.obs) : ''}</span></span><span class="cc">${done ? CHECK : nOk + '/' + r.series.length}</span></button>`;
-    if (e.id !== modo.ex){ h += `<section class="cexc ${done ? 'done' : ''}" id="ex-${e.id}">${head}</section>`; return; }
+    const head = `<button class="ceh" data-act="logex" data-ex="${e.id}"><span class="cn">${pad2(j + 1)}</span><span class="lm"><b>${esc(e.nome)}</b><span>${e.orig ? 'no lugar de ' + esc(e.orig) + ' · ' : ''}${esc(e.series)}×${esc(e.reps)}${lastMax ? ' · último ' + fmtN(lastMax) + ' kg' : ''}${e.obs ? ' · ' + esc(e.obs) : ''}</span></span><span class="cc">${done ? CHECK : nOk + '/' + r.series.length}</span></button>`;
+    const sc = par ? ' sup' + (par.a === e.id ? ' supa' : ' supb') : '';
+    if (!aberto){ h += `<section class="cexc ${done ? 'done' : ''}${sc}" id="ex-${e.id}">${head}</section>`; return; }
     const sg = sugestao(e, cur);
-    h += `<section class="cexc cur" id="ex-${e.id}">${head}`;
+    h += `<section class="cexc ${e.id === modo.ex ? 'cur' : 'open'}${sc}" id="ex-${e.id}">${head}`;
     if (sg && !done && !tempo) h += `<div class="csug ${sg.tipo}"><span>${sg.tipo === 'sobe' ? '▲' : '='} ${esc(sg.msg)}</span><button data-act="usasug" data-ex="${e.id}" data-v="${sg.kg}">Usar ${fmtN(sg.kg)} kg</button></div>`;
     h += `<div class="ctab"><div class="ctr th"><span>SÉRIE</span><span>ANTERIOR</span><span>KG</span><span>${tempo ? 'SEG' : 'REPS'}</span><span></span></div>`;
     r.series.forEach((x, k) => {
@@ -1183,15 +1191,81 @@ function renderLog(){
         <button class="cck" data-act="setok" data-ex="${e.id}" data-i="${k}" aria-label="Concluir série ${k + 1}">${CHECK}</button></div>`;
     });
     h += `</div><div class="cadd"><button data-act="addset" data-ex="${e.id}">+ série</button>${r.series.length > 1 ? `<button data-act="delset" data-ex="${e.id}" data-i="${r.series.length - 1}">− série</button>` : ''}</div>`;
-    if (modo.rest){
+    const prox = t.itens[j + 1];
+    h += `<div class="cmenu"><button data-act="hist" data-ex="${e.id}">${ICO_HIST}Histórico</button><button data-act="troca" data-ex="${e.id}">${ICO_TROCA}Trocar</button>${par ? `<button data-act="supx" data-ex="${e.id}">${ICO_SUP}Separar</button>` : prox && !parDe(L, prox.id) ? `<button data-act="sup" data-ex="${e.id}">${ICO_SUP}Superset</button>` : ''}</div>`;
+    if (modo.rest && e.id === modo.ex){
       const rest = Math.max(0, Math.ceil((modo.rest.fim - Date.now()) / 1000));
       h += `<div class="crest"><span class="lm"><small>Descanso</small><b class="led blu" id="mrv">${Math.floor(rest / 60)}:${pad2(rest % 60)}</b></span><div class="bar"><i id="mrb" style="width:${(rest / modo.rest.total * 100).toFixed(1)}%"></i></div><button data-act="mrest" data-v="-15">−15</button><button data-act="mrest" data-v="15">+15</button><button data-act="mpular">Pular</button></div>`;
     }
     h += '</section>';
   });
   if (todos) h += '<button class="cgo" data-act="mfinal">Finalizar e ver o resumo</button>';
-  h += '<button class="slink clfoco" data-act="mfoco">Modo foco: um exercício por vez</button></div>';
-  return h;
+  h += '<button class="slink clfoco" data-act="mfoco">Modo foco: um exercício por vez</button>';
+  if (modo.sheet) h += sheetHtml(L, t);
+  return h + '</div>';
+}
+const ICO_HIST = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v16h16"/><path d="M7.5 15l3.5-4 3 2.5 5-6"/></svg>';
+const ICO_TROCA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>';
+const ICO_SUP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7H7a4 4 0 0 0 0 8h2M15 7h2a4 4 0 0 1 0 8h-2M8 11h8"/></svg>';
+const ALT = {
+  costas:['Puxada alta aberta','Puxada alta com triângulo','Puxada supinada','Pulldown na polia','Remada baixa com triângulo','Remada curvada com barra','Remada unilateral com halter (serrote)','Remada cavalinho','Remada neutra máquina articulada'],
+  biceps:['Rosca direta barra W','Rosca alternada com halter','Rosca martelo','Rosca na polia','Bíceps máquina scott','Rosca concentrada'],
+  peito:['Supino reto com barra','Supino reto máquina articulada','Supino inclinado com halter','Crucifixo máquina (peck deck)','Crossover na polia','Supino declinado'],
+  ombro:['Desenvolvimento máquina','Desenvolvimento com halter','Elevação lateral halteres','Elevação lateral polia','Elevação frontal','Face pull','Crucifixo inverso'],
+  triceps:['Tríceps corda','Tríceps barra na polia','Tríceps francês','Tríceps testa','Mergulho no banco'],
+  quad:['Leg press 45°','Agachamento livre','Hack machine','Cadeira extensora','Afundo com halter','Agachamento búlgaro'],
+  posterior:['Mesa flexora','Cadeira flexora','Stiff com halter','Terra romeno'],
+  gluteo:['Elevação pélvica','Abdutora','Coice na polia'],
+  adutor:['Cadeira adutora'], panturrilha:['Panturrilha sentado','Panturrilha em pé'],
+  abdomen:['Prancha abdominal','Abdominal na polia','Abdominal infra']
+};
+function histEx(e, before){
+  const ses = [];
+  Object.keys(S).filter(k => k.startsWith('dia:') && k.slice(4) < before).sort().forEach(k => {
+    const t = S[k].treino || {};
+    const r = (t[e.id] && (!t[e.id].nome || t[e.id].nome === e.nome) ? t[e.id] : null) || Object.values(t).find(x => x.nome === e.nome);
+    if (!r) return;
+    const ok = (r.series||[]).filter(x => x.ok && num(x.kg) != null);
+    if (!ok.length) return;
+    const top = Math.max(...ok.map(x => num(x.kg)));
+    const e1 = Math.max(...ok.map(x => { const kg = num(x.kg), rp = num(x.reps) || 1; return rp > 15 ? kg : kg * (1 + rp / 30); }));
+    ses.push({ data:k.slice(4), sets:ok, top, e1 });
+  });
+  return ses;
+}
+function sheetHtml(L, t){
+  const e0 = t.itens.find(x => x.id === modo.sheet.ex); if (!e0) return '';
+  const e = exHoje(L, e0);
+  let b = '';
+  if (modo.sheet.tipo === 'hist'){
+    const ses = histEx(e, cur);
+    b += `<h2>${esc(e.nome)}</h2>`;
+    if (!ses.length) b += '<p class="muted">Ainda sem histórico desse exercício. Depois do primeiro treino ele aparece aqui.</p>';
+    else {
+      const best = ses.reduce((a, x) => x.top > a.top ? x : a), b1 = ses.reduce((a, x) => x.e1 > a.e1 ? x : a);
+      b += `<div class="cboard"><div><small>MELHOR CARGA</small><span class="led amb">${fmtN(best.top)}</span></div><div><small>1RM ESTIMADO</small><span class="led">${fmtN(Math.round(b1.e1))}</span></div><div><small>SESSÕES</small><span class="led wht">${ses.length}</span></div></div>`;
+      const pts = ses.slice(-10);
+      if (pts.length > 1){
+        const mn = Math.min(...pts.map(x => x.e1)), mx = Math.max(...pts.map(x => x.e1)), rg = (mx - mn) || 1;
+        const X = k => (12 + k * 266 / (pts.length - 1)).toFixed(1), Y = v => (10 + (mx - v) / rg * 60).toFixed(1);
+        b += `<svg class="sline" viewBox="0 0 290 80" aria-hidden="true"><polyline points="${pts.map((x, k) => X(k) + ',' + Y(x.e1)).join(' ')}"/>${pts.map((x, k) => `<circle cx="${X(k)}" cy="${Y(x.e1)}" r="4.5"/>`).join('')}</svg><p class="cap" style="margin:0">1RM estimado por treino (carga × repetições)</p>`;
+      }
+      b += '<div class="chs">' + ses.slice().reverse().slice(0, 8).map(x => `<div class="chr"><span class="d">${DIAS[idxOf(parse(x.data))]} ${fmtD(x.data)}</span><span class="st">${x.sets.map(z => esc(z.kg) + '×' + esc(z.reps || '–')).join(' · ')}</span><b class="led amb">${fmtN(x.top)}</b></div>`).join('') + '</div>';
+    }
+  }
+  if (modo.sheet.tipo === 'troca'){
+    const g = (musculosDe(e0.nome)[0]) || '';
+    const nomes = [];
+    Object.values(P().treinos).forEach(tt => tt.itens.forEach(x => nomes.push(x.nome)));
+    (ALT[g] || []).forEach(n => nomes.push(n));
+    const ops = [...new Set(nomes)].filter(n => n !== e.nome && n !== e0.nome && (!g || musculosDe(n)[0] === g));
+    modo.sheet.ops = ops;
+    b += `<h2>Trocar ${esc(e0.nome)}</h2><p class="muted" style="margin:0 0 10px">Só pra hoje. O Plano continua igual e o histórico fica no nome do exercício que você fizer.</p>`;
+    if (e.orig) b += `<button class="cli" data-act="trocax" data-ex="${e0.id}"><i style="background:#22A060"></i><span class="lm"><b>Voltar pro original</b><span>${esc(e0.nome)}</span></span></button>`;
+    b += '<div class="clst" style="margin-top:8px">' + ops.map((n, k) => { const ul = lastSets({ id:'-', nome:n }, cur); const mx = ul ? Math.max(0, ...ul.map(z => num(z.kg) || 0)) : 0; return `<button class="cli" data-act="trocaok" data-ex="${e0.id}" data-i="${k}"><i style="background:#B8343A"></i><span class="lm"><b>${esc(n)}</b><span>${mx ? 'último ' + fmtN(mx) + ' kg' : 'sem histórico'}</span></span></button>`; }).join('') + '</div>';
+    b += `<div class="ctxt"><input id="troca_txt" placeholder="Outro exercício (digite)"><button class="cpill" data-act="trocatxt" data-ex="${e0.id}">Usar</button></div>`;
+  }
+  return `<div class="csheet-bg" data-act="shx"></div><section class="csheet" role="dialog" aria-modal="true"><button class="mx csx" data-act="shx" aria-label="Fechar">${ICON.x}</button>${b}</section>`;
 }
 function tickModo(){
   clearInterval(modoTick);
@@ -1211,7 +1285,7 @@ function tickModo(){
   }, 250);
 }
 function concluirSerieModo(){
-  const L = dia(cur), t = treinoDo(cur), e = t.itens.find(x => x.id === modo.ex), r = getEx(L, e), k = serieAtual(r), s = r.series[k];
+  const L = dia(cur), t = treinoDo(cur), e = exHoje(L, t.itens.find(x => x.id === modo.ex)), r = getEx(L, e), k = serieAtual(r), s = r.series[k];
   const mxAntes = maxOk(r), prev = bestKg(e.nome, cur);
   s.ok = true; if (!s.reps) s.reps = numReps(e.reps); r.nome = e.nome;
   if (!L.inicio){ L.inicio = Date.now(); delete L.fim; }
@@ -1346,7 +1420,7 @@ VIEW.addEventListener('click', async e => {
     case 'dnext': cur = addDays(cur, 1); pickOpen = false; render(); return;
     case 'tstart': L.inicio = Date.now(); delete L.fim; touch(cur); keepScroll(render); return;
     case 'tfim': if (confirm('Finalizar o treino agora?')){ L.fim = Date.now(); touch(cur); render(); window.scrollTo(0,0); } return;
-    case 'usasug': { const v = b.dataset.v; const exo = treinoDo(cur).itens.find(x => x.id === exId); const r = getEx(L, exo); r.nome = exo.nome; r.series.forEach(s => { if (!s.ok) s.kg = String(v).replace('.', ','); }); touch(cur); keepScroll(render); toast('Carga ' + fmtN(+v) + ' kg nas séries'); return; }
+    case 'usasug': { const v = b.dataset.v; const exo = exHoje(L, treinoDo(cur).itens.find(x => x.id === exId)); const r = getEx(L, exo); r.nome = exo.nome; r.series.forEach(s => { if (!s.ok) s.kg = String(v).replace('.', ','); }); touch(cur); keepScroll(render); toast('Carga ' + fmtN(+v) + ' kg nas séries'); return; }
     case 'pushon': ativarPush(); return;
     case 'pushoff': desativarPush(); return;
     case 'pushtest': testePush(); return;
@@ -1371,6 +1445,20 @@ VIEW.addEventListener('click', async e => {
     case 'tabprog': tab = 'prog'; render(); window.scrollTo(0,0); return;
     case 'modo': abrirModo(exId); return;
     case 'log': abrirModo(exId, true); return;
+    case 'hist': case 'troca': if (modo){ modo.sheet = { tipo:a, ex:exId }; keepScroll(render); } return;
+    case 'shx': if (modo){ modo.sheet = null; keepScroll(render); } return;
+    case 'trocaok': case 'trocatxt': case 'trocax': {
+      if (!modo) return; const L = dia(cur);
+      let novo = null;
+      if (a === 'trocaok') novo = (modo.sheet.ops || [])[i];
+      if (a === 'trocatxt'){ const v = ($('#troca_txt') || {}).value; novo = v && v.trim(); if (!novo) return; }
+      const e0 = treinoDo(cur).itens.find(x => x.id === exId); L.troca = L.troca || {};
+      if (a === 'trocax' || novo === e0.nome) delete L.troca[exId]; else L.troca[exId] = novo;
+      const r = getEx(L, e0); r.series.forEach(z => { if (!z.ok){ z.kg = ''; z.reps = ''; } }); r.nome = exHoje(L, e0).nome;
+      touch(cur); modo.sheet = null; modo.ex = exId; keepScroll(render); toast(a === 'trocax' ? 'Voltou pro ' + e0.nome : 'Hoje: ' + novo); return;
+    }
+    case 'sup': { if (!modo) return; const L = dia(cur); const tt = treinoDo(cur), j = tt.itens.findIndex(x => x.id === exId), nx = tt.itens[j + 1]; if (!nx) return; L.super = L.super || {}; L.super[exId] = nx.id; touch(cur); keepScroll(render); const c2 = n => n.split(' ').slice(0, 2).join(' '); toast('Superset: ' + c2(exHoje(L, tt.itens[j]).nome) + ' + ' + c2(exHoje(L, nx).nome)); return; }
+    case 'supx': { if (!modo) return; const L = dia(cur); const pr = parDe(L, exId); if (pr){ delete L.super[pr.a]; touch(cur); keepScroll(render); } return; }
     case 'logex': if (modo){ modo.ex = exId; keepScroll(render); const el = document.getElementById('ex-' + exId); if (el) el.scrollIntoView({ behavior:'smooth', block:'nearest' }); } return;
     case 'mfoco': if (modo){ modo.lista = false; const LL = dia(cur), tt = treinoDo(cur); modo.fimTreino = !tt.itens.some(x => !exFeito(LL, x)); render(); window.scrollTo(0,0); } return;
     case 'msair': fecharModo(); return;
@@ -1410,7 +1498,7 @@ VIEW.addEventListener('click', async e => {
     case 'setok': {
       e.preventDefault();
       const tr = treinoDo(cur);
-      const exo = tr.itens.find(x => x.id === exId); const r = getEx(L, exo); const s = r.series[i];
+      const exo = exHoje(L, tr.itens.find(x => x.id === exId)); const r = getEx(L, exo); const s = r.series[i];
       const mxAntes = maxOk(r);
       s.ok = !s.ok;
       if (s.ok){
@@ -1424,9 +1512,19 @@ VIEW.addEventListener('click', async e => {
       r.nome = exo.nome; touch(cur);
       if (modo && modo.lista){
         if (s.ok){
-          if (r.series.every(x => x.ok)){ const nx = proxExercicio(L, tr, exo.id); if (nx){ modo.ex = nx.id; } }
-          const fimTudo = !tr.itens.some(x => !exFeito(L, x));
-          modo.rest = fimTudo ? null : { fim: Date.now() + (P().descanso || DESCANSO_PADRAO) * 1000, total: (P().descanso || DESCANSO_PADRAO) };
+          const fimTudo = !tr.itens.some(x => !exFeito(L, x)), par = parDe(L, exo.id);
+          const dsc = () => ({ fim: Date.now() + (P().descanso || DESCANSO_PADRAO) * 1000, total: (P().descanso || DESCANSO_PADRAO) });
+          if (par){
+            const ea = tr.itens.find(x => x.id === par.a), eb = tr.itens.find(x => x.id === par.b);
+            if (exo.id === par.a && eb && !exFeito(L, eb)){ modo.ex = par.b; modo.rest = null; }
+            else {
+              if (ea && !exFeito(L, ea)) modo.ex = par.a; else if (eb && !exFeito(L, eb)) modo.ex = par.b; else { const nx = proxExercicio(L, tr, par.b); if (nx) modo.ex = nx.id; }
+              modo.rest = fimTudo ? null : dsc();
+            }
+          } else {
+            if (r.series.every(x => x.ok)){ const nx = proxExercicio(L, tr, exo.id); if (nx){ modo.ex = nx.id; } }
+            modo.rest = fimTudo ? null : dsc();
+          }
           if (fimTudo){ bip(); toast('🏁 Treino completo!'); }
         }
         keepScroll(render); const el = document.getElementById('ex-' + modo.ex); if (el) el.scrollIntoView({ behavior:'smooth', block:'nearest' }); return;
@@ -1511,7 +1609,7 @@ VIEW.addEventListener('change', e => {
   const el = e.target, f = el.dataset.f, pf = el.dataset.pf;
   if (f){
     if (f === 'kg' || f === 'reps'){
-      const exo = treinoDo(cur).itens.find(x => x.id === el.dataset.ex);
+      const exo = exHoje(dia(cur), treinoDo(cur).itens.find(x => x.id === el.dataset.ex));
       const r = getEx(dia(cur), exo); r.nome = exo.nome; r.series[parseInt(el.dataset.i)][f] = el.value.trim(); touch(cur);
       const vv = $('#vvol'); if (vv) vv.textContent = Math.round(volDia(dia(cur))).toLocaleString('pt-BR');
       pendRender = true;
