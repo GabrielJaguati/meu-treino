@@ -80,6 +80,7 @@ const SEED_NOTAS = 'LCA do joelho direito rompido (operado em 2018)\n5º metacar
 
 /* ---------- estado ---------- */
 let sb = null, user = null, S = {};
+let progBar = 'vol';
 let tab = 'hoje', cur = hoje(), planDay = idxOf(new Date()), planSeg = 'treino', progEx = '';
 const openEx = {};
 let pickOpen = false;
@@ -692,7 +693,7 @@ function calAno(){
   return `<h2 class="mh">Seu ano</h2><section class="ccal" style="--cc:${CAL_COR[f]}">
     <div class="board"><div class="sc3"><div class="tm"><span>DIAS ATIVOS</span><b class="led wht">${ativos}</b></div><div class="tm clk"><span>SEQUÊNCIA</span><b class="led">${seq}</b></div><div class="tm"><span>RECORDE</span><b class="led amb">${best}</b></div></div>
     <span class="bcap">SEQUÊNCIA: DIAS SEGUIDOS COM 2/3 FEITO</span></div>
-    <div class="cchips">${chips}</div><div class="cmeses">${meses}</div>
+    <div class="hchips">${chips}</div><div class="cmeses">${meses}</div>
     <div class="cleg"><span>menos</span><i class="n1"></i><i class="n2"></i><i class="n3"></i><i class="n4"></i><span>dia completo</span></div>${det}</section>`;
 }
 
@@ -731,66 +732,26 @@ function renderHoje(){
   let h = `<header class="top"><div class="tl"><span class="dt">${dataTxt}${isToday ? '' : ' <button class="lnk" data-act="dtoday">voltar pra hoje</button>'}</span><span class="hi">${saud}, ${NOME}</span></div>${streak ? `<span class="streak" title="Dias seguidos com treino"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c2 3 5 5 5 9a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-8z"/></svg><b>${streak}</b> ${streak === 1 ? 'dia' : 'dias'}</span>` : ''}</header>`;
   h += `<nav class="week" aria-label="Dias da semana">${wk}</nav>`;
 
-  // ---- cards do dia (Stories) ----
+  // ---- treino em destaque + o que falta (layout C) ----
   const nome = t.nome || 'Descanso';
-  const fs = nome.length <= 12 ? 40 : nome.length <= 20 ? 36 : nome.length <= 28 ? 32 : 28;
   const agora = new Date(), hhmm = pad2(agora.getHours()) + ':' + pad2(agora.getMinutes());
   const prox = ocorrencias(hoje(), addDays(hoje(), 30)).find(o => o.data > hoje() || !o.e.hora || o.e.hora >= hhmm);
-  const cards = [];
-  let serTot = 0, serOk = 0, dots = '';
-  t.itens.forEach(e => { const r = getEx(L, e); r.series.forEach(s => { serTot++; if (s.ok) serOk++; dots += `<i class="${s.ok ? 'on' : ''}"></i>`; }); });
-  const volHoje = volDia(L);
-  const atual = t.itens.findIndex(e => !exFeito(L, e));
   const swapBtn = `<button class="sswap" data-act="tpick" aria-label="Trocar treino">${ICON.swap}</button>`;
+  const quando = isToday ? 'Treino de hoje' : 'Treino de ' + DIAS_F[i].toLowerCase();
   if (t.itens.length){
-    let clk = '<span class="led amb dim">0:00</span>';
-    if (L.inicio && !L.fim) clk = `<span class="led amb" id="tdur">${fmtDur(Date.now() - L.inicio)}</span>`;
-    else if (L.inicio && L.fim) clk = `<span class="led amb">${fmtDur(L.fim - L.inicio)}</span>`;
-    let cont = '', cta;
-    if (atual >= 0){
-      const e = t.itens[atual], r = getEx(L, e), nOk = r.series.filter(s => s.ok).length;
-      const kg = r.series[Math.min(nOk, r.series.length - 1)].kg || kgPadrao(e, r, nOk);
-      cont = `<div class="snext"><span class="led wht">${pad2(atual + 1)}</span><span class="lm"><small>${nOk ? 'Continuar' : exOk ? 'Próximo exercício' : 'Comece por'}</small><b>${esc(e.nome)}</b><span>Série ${Math.min(nOk + 1, r.series.length)} de ${r.series.length}${kg ? ', ' + esc(kg) + ' kg' : ''}</span></span></div>`;
-      cta = `<button class="scta" data-act="modo" data-ex="${e.id}">▶ ${L.inicio ? 'Continuar no modo treino' : 'Abrir modo treino'}</button>`;
-    } else if (!L.fim) cta = '<button class="scta" data-act="tfim">Finalizar e ver o resumo</button>';
-    else cta = '<button class="scta ghost" data-act="modo">Ver resumo do treino</button>';
-    const tlink = !L.inicio ? '<div class="slinks"><button class="slink b" data-act="tstart">▶ iniciar cronômetro</button><button class="slink" data-act="tedit">lançar tempo à mão</button></div>' : !L.fim ? '<button class="slink" data-act="tfim">finalizar treino</button>' : '<button class="slink" data-act="tedit">editar tempo</button>';
-    cards.push(`<section class="scard red"><div class="shead"><div><span class="k">${isToday ? 'Treino de hoje' : 'Treino de ' + DIAS_F[i].toLowerCase()}${trocado ? ' (trocado)' : ''}</span><h2 class="stt" style="font-size:${fs}px">${esc(nome)}</h2></div>${swapBtn}</div>
-      <div class="board"><div class="sc3"><div class="tm"><span>FEITOS</span><b class="led">${exOk}</b></div><div class="tm clk">${clk}<span>TEMPO</span></div><div class="tm"><span>FALTAM</span><b class="led wht">${t.itens.length - exOk}</b></div></div>
-        <div class="ldots">${dots}</div><div class="bcap">${serOk} DE ${serTot} SÉRIES · <span id="vvol">${Math.round(volHoje).toLocaleString('pt-BR')}</span> KG</div></div>
-      ${cont}<div class="sgrow"></div>${cta}${tlink}</section>`);
+    const durs = Object.keys(S).filter(x => x.startsWith('dia:') && S[x].tnome === t.nome && S[x].inicio && S[x].fim).map(x => S[x].fim - S[x].inicio).filter(v => v > 5*60000 && v < 4*3600000);
+    const med = durs.length ? ' · ~' + Math.round(durs.reduce((a, b) => a + b, 0) / durs.length / 60000) + ' min' : '';
+    const curto = n => String(n).split(' ').filter(w => w.length > 2 || /^\d/.test(w)).slice(0, 2).join(' ') || n;
+    const chips = t.itens.map(e => `<i class="${exFeito(L, e) ? 'ok' : ''}">${esc(curto(e.nome))}</i>`).join('');
+    const prog = L.inicio ? `<div class="cprog"><span><b class="led">${exOk}/${t.itens.length}</b> exercícios</span><span><b class="led amb" ${L.fim ? '' : 'id="tdur"'}>${fmtDur((L.fim || Date.now()) - L.inicio)}</b> ${L.fim ? 'de treino' : 'treinando'}</span></div>` : '';
+    const cta = L.fim ? '<button class="cgo ghost" data-act="log">Ver o treino</button>'
+      : `<button class="cgo" data-act="log">▶ ${L.inicio || exOk ? 'Continuar treino' : 'Começar treino'}</button>`;
+    const tlink = !L.inicio ? '<div class="slinks"><button class="slink" data-act="tstart">iniciar cronômetro</button><button class="slink" data-act="tedit">lançar tempo à mão</button></div>' : !L.fim ? '<div class="slinks"><button class="slink" data-act="tfim">finalizar treino</button></div>' : '<div class="slinks"><button class="slink" data-act="tedit">editar tempo</button></div>';
+    h += `<section class="chero"><div class="chh"><div><small>${quando}${trocado ? ' (trocado)' : ''} · ${t.itens.length} exercícios${med}</small><h2>${esc(nome)}</h2></div>${swapBtn}</div><div class="hchips">${chips}</div>${prog}${cta}${tlink}</section>`;
   } else {
     const ats = [...(t.cardio ? [{ act:'cardio', id:'', nome:t.cardio, on:!!L.cardio }] : []), ...(t.atividades||[]).map(a => ({ act:'ativ', id:a, nome:a, on:!!L.ativ[a] }))];
-    const txt = ats.map(a => a.nome).join(' ');
-    const ic = /futsal|futebol/i.test(txt) ? ICONE_TREINO.bola : t.cardio ? ICONE_TREINO.cardio : ICONE_TREINO.descanso;
-    cards.push(`<section class="scard ${ats.length ? 'red' : 'dark'}"><div class="shead"><div><span class="k">${isToday ? 'Hoje' : DIAS_F[i]}</span><h2 class="stt" style="font-size:${fs}px">${esc(nome)}</h2></div>${swapBtn}</div>
-      <div class="sic">${ic}</div>${ats.length ? ats.map(a => `<button class="stog ${a.on ? 'on' : ''}" data-act="${a.act}" data-id="${esc(a.id)}"><span class="c">${CHECK}</span>${esc(a.nome)}</button>`).join('') : '<p class="sp">Dia livre. Descanse ou faça um cardio leve.</p>'}<div class="sgrow"></div></section>`);
+    h += `<section class="chero"><div class="chh"><div><small>${isToday ? 'Hoje' : DIAS_F[i]}</small><h2>${esc(nome)}</h2></div>${swapBtn}</div>${ats.length ? ats.map(a => `<button class="stog ${a.on ? 'on' : ''}" data-act="${a.act}" data-id="${esc(a.id)}"><span class="c">${CHECK}</span>${esc(a.nome)}</button>`).join('') : '<p class="sp">Dia livre. Descanse ou faça um cardio leve.</p>'}</section>`;
   }
-  // próxima refeição
-  const refs = P().refeicoes, pend = refs.filter(m => !L.ref[m.id]);
-  const prxRef = pend.find(m => !m.hora || m.hora >= hhmm) || pend[0];
-  if (refs.length) cards.push(prxRef
-    ? `<section class="scard dark"><span class="k">Próxima refeição${prxRef.hora ? ', ' + esc(prxRef.hora) : ''}</span><h2 class="stt">${esc(prxRef.nome)}</h2><ul class="slist">${(prxRef.itens||[]).map(x => `<li>${esc(x)}</li>`).join('')}</ul>
-       <div class="sgrow"></div><div class="sfoot"><span class="led grn">${refOk}/${refs.length}</span><span>refeições hoje</span></div><button class="scta green" data-act="ref" data-id="${prxRef.id}">Comi</button></section>`
-    : `<section class="scard dark"><span class="k">Alimentação</span><h2 class="stt">Tudo certo</h2><p class="sp">Todas as ${refs.length} refeições marcadas.</p><div class="sgrow"></div><div class="sfoot"><span class="led grn">${refs.length}/${refs.length}</span><span>refeições hoje</span></div></section>`);
-  // suplementos
-  const supPend = sup.filter(x => !L.supl[x.id]);
-  if (sup.length) cards.push(`<section class="scard dark"><span class="k">Suplementos</span><h2 class="stt">${supPend.length ? 'Faltam ' + supPend.length : 'Todos tomados'}</h2>
-    <div class="ssup">${supPend.slice(0, 4).map(x => `<div class="ssr"><span class="lm"><b>${esc(x.nome)}</b><span>${esc([x.dose, x.hora].filter(Boolean).join(', '))}</span></span><button class="mini2" data-act="supl" data-id="${x.id}">Tomei</button></div>`).join('')}</div>
-    <div class="sgrow"></div><div class="sfoot"><span class="led grn">${sup.length - supPend.length}/${sup.length}</span><span>tomados hoje</span></div></section>`);
-  // água
-  const aguaF = (L.agua || 0) / meta;
-  cards.push(`<section class="scard blue"><span class="k">Água</span><div class="sagua"><div><b class="led blu big">${fmtN((L.agua||0)/1000)}</b><span class="bcap">DE ${fmtN(meta/1000)} L</span></div>${anelSvg([{ r:18, cor:'#4C8DFF', f:aguaF, sw:5 }], 96, 'sring')}</div>
-    <div class="sgrow"></div><div class="s3"><button class="scta blue2" data-act="agua" data-v="250">+250</button><button class="scta blue2" data-act="agua" data-v="500">+500</button><button class="scta ghost" data-act="agua" data-v="-250" aria-label="Tirar 250 ml">−</button></div></section>`);
-  // compromisso
-  if (prox){
-    const c = contagem(prox), tit = prox.e.titulo || TIPOS[prox.e.tipo] || '';
-    const dl = prox.data === hoje() ? 'Hoje' : prox.data === addDays(hoje(), 1) ? 'Amanhã' : DIAS_F[idxOf(parse(prox.data))] + ', ' + fmtD(prox.data);
-    cards.push(`<section class="scard gold"><span class="k">Próximo compromisso</span><h2 class="stt">${esc(tit)}</h2>
-      <div class="board"><div class="sc2"><div class="tm"><span>${c.u || 'QUANDO'}</span><b class="led amb">${c.n}</b></div><div class="tm"><span>HORA</span><b class="led wht">${esc(prox.e.hora || '--:--')}</b></div></div></div>
-      <p class="sp">${dl}${prox.e.local ? ', ' + esc(prox.e.local) : ''}</p><div class="sgrow"></div><button class="scta dark2" data-act="tabag">Ver agenda</button></section>`);
-  }
-  h += stories('st-hoje', cards);
   if (pickOpen){
     let pk = '<p class="tip">Escolha qual treino do plano você vai fazer hoje. O histórico e as cargas acompanham o treino escolhido.</p>';
     DIAS_F.forEach((n,k) => {
@@ -802,58 +763,35 @@ function renderHoje(){
     h += '<div id="tpick">' + panel('Trocar treino', ICON.swap, pk) + '</div>';
   }
 
-  // ---- anéis do dia ----
-  const fT = t.itens.length ? exOk / t.itens.length : (() => { const a = [t.cardio ? !!L.cardio : null, ...(t.atividades||[]).map(x => !!L.ativ[x])].filter(x => x !== null); return a.length ? a.filter(Boolean).length / a.length : 0; })();
-  const dT = refs.length + sup.length, dOk = refOk + (sup.length - supPend.length);
-  const tLbl = t.itens.length ? `${exOk}/${t.itens.length}` : Math.round(fT * 100) + '%';
-  h += `<div class="rings3">
-    <button class="rg" data-act="stgo" data-id="st-hoje" data-i="0">${anelSvg([{ r:18, cor:CORT, f:fT }], 42)}<span><b class="led">${tLbl}</b><small>Treino</small></span></button>
-    <button class="rg" data-act="stgo" data-id="st-hoje" data-i="${cards.length - (prox ? 2 : 1)}">${anelSvg([{ r:18, cor:CORA, f:aguaF }], 42)}<span><b class="led blu">${fmtN((L.agua||0)/1000)}L</b><small>Água</small></span></button>
-    <button class="rg" data-act="stgo" data-id="st-hoje" data-i="1">${anelSvg([{ r:18, cor:CORD, f: dT ? dOk / dT : 0 }], 42)}<span><b class="led grn">${dOk}/${dT}</b><small>Dieta</small></span></button>
-  </div>`;
-
-  // ---- falta hoje ----
-  const falta = [];
-  if ((L.agua || 0) < meta) falta.push(`<div class="fit"><i style="background:${CORA}"></i><span class="lm"><b>Água</b><span>Faltam ${fmtN((meta - (L.agua||0)) / 1000)} L</span></span><button class="mini2 blue" data-act="agua" data-v="250">+250</button></div>`);
-  pend.filter(m => m !== prxRef).slice(0, 2).forEach(m => falta.push(`<div class="fit"><i style="background:${CORD}"></i><span class="lm"><b>${esc(m.nome)}</b><span>${esc((m.itens||[]).join(', '))}</span></span>${m.hora ? `<em>${esc(m.hora)}</em>` : ''}</div>`));
-  supPend.slice(0, 2).forEach(x => falta.push(`<div class="fit"><i style="background:${CORD}"></i><span class="lm"><b>${esc(x.nome)}</b><span>${esc(x.hora || x.dose || '')}</span></span><button class="mini2" data-act="supl" data-id="${x.id}">Tomei</button></div>`));
-  if (isToday && falta.length) h += `<h2 class="sh2">Falta hoje</h2><div class="fcard">${falta.slice(0, 5).join('')}</div>`;
-
+  // lista do dia
+  const refs = P().refeicoes, pend = refs.filter(m => !L.ref[m.id]);
+  const prxRef = pend.find(m => !m.hora || m.hora >= hhmm) || pend[0];
+  const supPend = sup.filter(x => !L.supl[x.id]);
+  const COR_TIPO = { fisio:'#F2C230', jogo:'#22A060', medico:'#FF4A3F', exame:'#4C8DFF', outro:'#8E8D93' };
+  const rows = [];
+  let evs = ocorrencias(cur, cur);
+  if (isToday) evs = evs.filter(o => !o.e.hora || o.e.hora >= hhmm);
+  if (isToday && !evs.length && prox && prox.data <= addDays(hoje(), 7)) evs = [prox];
+  evs.slice(0, 3).forEach(o => {
+    const dl = o.data === cur ? '' : (o.data === addDays(hoje(), 1) ? 'Amanhã' : DIAS_F[idxOf(parse(o.data))] + ', ' + fmtD(o.data)) + ' · ';
+    rows.push(`<button class="cli" data-act="tabag"><i style="background:${COR_TIPO[o.e.tipo] || '#8E8D93'}"></i><span class="lm"><b>${esc(o.e.titulo || TIPOS[o.e.tipo] || '')}</b><span>${dl}${esc(o.e.hora || 'dia todo')}${o.e.local ? ' · ' + esc(o.e.local) : ''}</span></span></button>`);
+  });
+  const ag = L.agua || 0;
+  rows.push(`<div class="cli"><i style="background:#4C8DFF"></i><span class="lm"><b>Água</b><span>${ag >= meta ? 'meta do dia batida' : 'faltam ' + fmtN((meta - ag) / 1000) + ' L de ' + fmtN(meta / 1000) + ' L'}</span></span><b class="led blu cv">${fmtN(ag / 1000)}L</b><button class="cpill ghost" data-act="agua" data-v="-250" aria-label="Tirar 250 ml">−</button><button class="cpill blue" data-act="agua" data-v="250">+250</button></div>`);
+  if (prxRef) rows.push(`<div class="cli"><i style="background:#22A060"></i><span class="lm"><b>${esc(prxRef.nome)}${prxRef.hora ? ' · ' + esc(prxRef.hora) : ''}</b><span>${esc((prxRef.itens||[]).join(', '))}</span></span><button class="cpill" data-act="ref" data-id="${prxRef.id}">Comi</button></div>`);
+  supPend.slice(0, 3).forEach(x => rows.push(`<div class="cli"><i style="background:#22A060"></i><span class="lm"><b>${esc(x.nome)}</b><span>${esc([x.dose, x.hora].filter(Boolean).join(', '))}</span></span><button class="cpill" data-act="supl" data-id="${x.id}">Tomei</button></div>`));
+  if (supPend.length > 3) rows.push(`<p class="cmore">+ ${supPend.length - 3} suplementos na lista abaixo</p>`);
+  h += `<div class="clst">${rows.join('')}</div>`;
 
   if (L.fim) h += resumoHtml(L, cur);
 
-  // hoje: só o que ainda vai acontecer e não está no bloco pequeno; outros dias: tudo
-  let evs = ocorrencias(cur, cur);
-  if (isToday) evs = evs.filter(o => (!o.e.hora || o.e.hora >= hhmm) && !(prox && o.e.id === prox.e.id && o.data === prox.data));
-  if (evs.length) h += panel(isToday ? 'Ainda hoje' : 'Compromissos', IC.agenda, evs.map(o => evtHtml(o, false)).join(''));
+  if (!isToday){ const evd = ocorrencias(cur, cur); if (evd.length) h += panel('Compromissos', IC.agenda, evd.map(o => evtHtml(o, false)).join('')); }
 
   let b = '';
-  if (t.itens.length) b += `<button class="btn primary modo-btn" data-act="modo">${t.itens.some(x => !exFeito(L, x)) ? '▶ Abrir modo treino' : '▶ Ver resumo no modo treino'}</button>`;
   if (P().obs && t.itens.length) b += `<p class="tip">${esc(P().obs)}</p>`;
-  if (!t.itens.length && !t.cardio && !(t.atividades||[]).length) b += '<p class="muted">Nada planejado pra hoje. Dá pra editar na aba Plano.</p>';
-  t.itens.forEach(e => {
-    const r = getEx(L, e), last = lastSets(e, cur);
-    const nOk = r.series.filter(s => s.ok).length, done = r.series.length && nOk === r.series.length;
-    const mx = maxOk(r), prevB = mx != null ? bestKg(e.nome, cur) : null, isPR = prevB != null && mx > prevB;
-    const lastTxt = last ? last.filter(s => s.kg || s.reps).map(s => (s.kg||'–') + '×' + (s.reps||'–')).join(' · ') : '';
-    b += `<details class="ex ${done?'done':''}" data-ex="${e.id}" ${openEx[e.id]?'open':''}><summary><span class="dot"></span><span class="exm"><span class="rn">${esc(e.nome)}${isPR ? ' <span class="prb">🏆 recorde</span>' : ''}</span><span class="rd">${esc(e.series)}×${esc(e.reps)}${e.obs?' · '+esc(e.obs):''}</span></span><span class="cnt">${nOk}/${r.series.length}</span></summary><div class="sets">`;
-    if (lastTxt) b += `<p class="cap">Última vez (kg×reps): ${esc(lastTxt)}</p>`;
-    const sg = sugestao(e, cur);
-    if (sg && !done) b += `<div class="sug ${sg.tipo}"><span class="lm"><b>${sg.tipo === 'sobe' ? '▲ SUBIR CARGA' : '= MANTER CARGA'}</b><span>${esc(sg.msg)}</span></span><button class="sugb" data-act="usasug" data-ex="${e.id}" data-v="${sg.kg}">Usar ${fmtN(sg.kg)} kg</button></div>`;
-    b += '<div class="sh"><span>#</span><span>kg</span><span>reps</span><span></span><span></span></div>';
-    r.series.forEach((s,k) => {
-      const ph = sg ? String(sg.kg).replace('.', ',') : last && last[k] ? last[k].kg : '';
-      b += `<div class="sr ${s.ok?'done':''}"><span class="sn">${k+1}</span>
-        <input inputmode="decimal" aria-label="Carga série ${k+1}" data-f="kg" data-ex="${e.id}" data-i="${k}" value="${esc(s.kg)}" placeholder="${esc(ph)}">
-        <input inputmode="numeric" aria-label="Repetições série ${k+1}" data-f="reps" data-ex="${e.id}" data-i="${k}" value="${esc(s.reps)}" placeholder="${esc(numReps(e.reps))}">
-        <button class="chk" data-act="setok" data-ex="${e.id}" data-i="${k}" aria-label="Concluir série ${k+1}"><span class="c">${CHECK}</span></button>
-        <button class="rm" data-act="delset" data-ex="${e.id}" data-i="${k}" aria-label="Remover série">×</button></div>`;
-    });
-    b += `<button class="add sm" data-act="addset" data-ex="${e.id}">+ série</button></div></details>`;
-  });
   if (t.cardio) b += checkRow('cardio', '', esc(t.cardio), !!L.cardio);
   (t.atividades||[]).forEach(a => { b += checkRow('ativ', a, esc(a), !!L.ativ[a]); if (L.ativ[a]) b += jogoHtml(L, a); });
-  h += panel('Treino', IC.treino, b, t.itens.length ? `<span class="pc">${exOk}/${t.itens.length}</span>` : '');
+  if (b) h += panel(t.itens.length ? 'Extras do treino' : 'Treino', IC.treino, b);
 
   b = P().refeicoes.map(m => checkRow('ref', m.id, (m.hora ? esc(m.hora)+' · ' : '') + esc(m.nome), !!L.ref[m.id], esc((m.itens||[]).join(' · ')))).join('');
   h += panel('Alimentação', IC.comida, b, `<span class="pc">${refOk}/${P().refeicoes.length}</span>`);
@@ -876,20 +814,14 @@ function renderPlano(){
 
   if (planSeg === 'treino'){
     const t = P().treinos[planDay];
-    const ini = addDays(hoje(), -idxOf(new Date()));
-    h += '<div class="wk3">' + DIAS.map((n,k) => { const f = diaFrac(addDays(ini, k)); return `<button class="${k===planDay?'on':''}" data-act="stgo" data-id="st-plano" data-i="${k}" aria-label="${DIAS_F[k]}"><span>${n}</span>${tri3(f[0], f[1], f[2])}</button>`; }).join('') + '</div>';
-    const cardsP = DIAS_F.map((nm, k) => {
+    const hojeK = idxOf(new Date());
+    h += '<div class="clst">' + DIAS_F.map((nm, k) => {
       const tt = P().treinos[k] || { nome:'', itens:[] };
       const durs = Object.keys(S).filter(x => x.startsWith('dia:') && S[x].tnome === tt.nome && S[x].inicio && S[x].fim).map(x => S[x].fim - S[x].inicio).filter(v => v > 5*60000 && v < 4*3600000);
-      const med = durs.length ? fmtDur(durs.reduce((a, b) => a + b, 0) / durs.length) : '--:--';
-      const ser = tt.itens.reduce((a, e) => a + (parseInt(e.series) || 0), 0);
-      const linhas = tt.itens.length ? tt.itens.map((e, j) => `<div class="brow"><span class="led amb">${pad2(j + 1)}</span><b>${esc(e.nome)}</b><span class="led">${esc(e.series)}×${esc(e.reps)}</span></div>`).join('')
-        : [tt.cardio, ...(tt.atividades||[])].filter(Boolean).map(a => `<div class="brow"><span class="led grn">●</span><b>${esc(a)}</b></div>`).join('') || '<div class="brow"><b class="muted">Descanso</b></div>';
-      return `<section class="scard ${k === planDay ? 'red' : 'dark'}"><span class="k">${nm}${tt.itens.length ? ' · ' + tt.itens.length + ' exercícios' : ''}</span><h2 class="stt">${esc(tt.nome || 'Descanso')}</h2>
-        <div class="board">${linhas}</div>${tt.itens.length ? `<div class="s2b"><div class="board tc"><span>SÉRIES</span><b class="led">${ser}</b></div><div class="board tc"><span>TEMPO MÉDIO</span><b class="led amb">${med}</b></div></div>` : ''}
-        <div class="sgrow"></div><button class="scta ${k === planDay ? 'ghost2' : 'ghost'}" data-act="pday" data-id="${k}">${k === planDay ? 'Editando este dia ↓' : 'Editar este dia'}</button></section>`;
-    });
-    h += stories('st-plano', cardsP, planDay);
+      const med = durs.length ? ' · ~' + Math.round(durs.reduce((a, b) => a + b, 0) / durs.length / 60000) + ' min' : '';
+      const desc = tt.itens.length ? tt.itens.length + ' exercícios' + med : [tt.cardio, ...(tt.atividades||[])].filter(Boolean).join(' · ') || 'Descanso';
+      return `<button class="cday ${k === planDay ? 'on' : ''}" data-act="pday" data-id="${k}"><span class="dn">${DIAS[k].toUpperCase()}</span><span class="lm"><b>${esc(tt.nome || 'Descanso')}</b><span>${esc(desc)}${k === hojeK ? ' · hoje' : ''}</span></span><em>›</em></button>`;
+    }).join('') + '</div>';
     h += `<h2 class="mh" id="editor">Editando: ${DIAS_F[planDay]}</h2>`;
     h += `<div class="f"><label>Nome do treino<input data-pf="tnome" value="${esc(t.nome)}"></label></div>`;
     h += `<div class="f"><label>Cardio (deixe vazio se não tiver)<input data-pf="tcardio" value="${esc(t.cardio||'')}" placeholder="Ex.: Cardio 30 min na bike"></label></div>`;
@@ -937,29 +869,35 @@ function renderProg(){
   let h = '<h1>Progresso</h1>';
   const metaP = P().metaPeso || 95;
   const dksP = Object.keys(S).filter(k => k.startsWith('dia:') && k.slice(4) <= hoje()).sort();
-  const cardsG = [];
   if (last){
-    const diff = last.peso - first.peso, falta = first.peso - metaP, fMeta = falta > 0 ? Math.max(0, Math.min(1, (first.peso - last.peso) / falta)) : 1;
+    const diff = last.peso - first.peso, falta = last.peso - metaP;
     const pp = pesos.slice(-10); let linha = '';
     if (pp.length > 1){
-      const mn = Math.min(...pp.map(m => m.peso)), mx = Math.max(...pp.map(m => m.peso)), rg = (mx - mn) || 1;
-      const X = k => (12 + k * 266 / (pp.length - 1)).toFixed(1), Y = v => (10 + (mx - v) / rg * 80).toFixed(1);
-      linha = `<svg class="sline" viewBox="0 0 290 100" aria-hidden="true"><polyline points="${pp.map((m, k) => X(k) + ',' + Y(m.peso)).join(' ')}"/>${pp.map((m, k) => `<circle cx="${X(k)}" cy="${Y(m.peso)}" r="5"/>`).join('')}</svg>`;
-    } else linha = '<p class="sp">Registre de novo daqui uns dias pra ver a curva.</p>';
-    cardsG.push(`<section class="scard red"><span class="k">Peso atual</span>
-      <div class="board spes"><div><b class="led big2">${fmtN(last.peso)}</b><span class="bcap ${diff <= 0 ? 'g' : ''}">${pesos.length > 1 ? (diff <= 0 ? '▼ ' : '▲ ') + fmtN(Math.abs(diff)) + ' KG DESDE ' + fmtD(first.data) : 'PRIMEIRO REGISTRO'}</span></div>
-        <button class="smeta" data-act="meta" aria-label="Mudar meta de peso">${anelSvg([{ r:18, cor:CORD, f:fMeta, sw:5 }], 76)}<b>${Math.round(fMeta * 100)}%</b></button></div>
-      <span class="sp r">da meta de ${fmtN(metaP)} kg (toque no anel pra mudar)</span>${linha}<div class="sgrow"></div><button class="scta" data-act="goform">+ Registrar peso</button></section>`);
+      const mn = Math.min(...pp.map(m => m.peso), metaP), mx = Math.max(...pp.map(m => m.peso)), rg = (mx - mn) || 1;
+      const X = k => (12 + k * 266 / (pp.length - 1)).toFixed(1), Y = v => (10 + (mx - v) / rg * 70).toFixed(1);
+      linha = `<svg class="sline" viewBox="0 0 290 90" aria-hidden="true"><line x1="0" x2="290" y1="${Y(metaP)}" y2="${Y(metaP)}" class="meta"/><polyline points="${pp.map((m, k) => X(k) + ',' + Y(m.peso)).join(' ')}"/>${pp.map((m, k) => `<circle cx="${X(k)}" cy="${Y(m.peso)}" r="4.5"/>`).join('')}</svg>`;
+    }
+    h += `<section class="cpc"><div class="cph"><small>Peso atual · meta ${fmtN(metaP)} kg</small><button class="slink" data-act="meta">mudar meta</button></div>
+      <b class="led cbig">${fmtN(last.peso)}</b><span class="cok">${falta > 0 ? 'faltam ' + fmtN(falta) + ' kg' : 'meta batida!'}${pesos.length > 1 ? ' · ' + (diff <= 0 ? '▼ ' : '▲ ') + fmtN(Math.abs(diff)) + ' kg desde ' + fmtD(first.data) : ''}</span>${linha}
+      <button class="cgo ghost" data-act="goform">+ Registrar peso</button></section>`;
   }
+  // semanas: volume, duração ou treinos
+  const ini0 = addDays(hoje(), -idxOf(new Date()));
+  const sem = [];
+  for (let w = 6; w >= 0; w--){
+    const a = addDays(ini0, -7 * w); let vol = 0, dur = 0, n = 0;
+    for (let k = 0; k < 7; k++){ const X = S['dia:' + addDays(a, k)]; if (!X) continue; vol += volDia(X); if (X.inicio && X.fim) dur += (X.fim - X.inicio) / 60000; if (X.cardio || Object.values(X.ativ||{}).some(Boolean) || Object.values(X.treino||{}).some(r => (r.series||[]).some(x => x.ok))) n++; }
+    sem.push({ a, v: progBar === 'dur' ? dur : progBar === 'n' ? n : vol });
+  }
+  const mxS = Math.max(1, ...sem.map(x => x.v)), fmtS = v => progBar === 'dur' ? Math.round(v) + ' min' : progBar === 'n' ? v + (v === 1 ? ' treino' : ' treinos') : Math.round(v).toLocaleString('pt-BR') + ' kg';
+  h += `<section class="cpc"><div class="cph"><small>Últimas 7 semanas</small><small>esta semana: <b>${fmtS(sem[6].v)}</b></small></div>
+    <div class="cbars">${sem.map((x, k) => `<div><i style="height:${Math.max(3, x.v / mxS * 100)}%" class="${k === 6 ? 'on' : ''}"></i><span>${fmtD(x.a).slice(0, 5)}</span></div>`).join('')}</div>
+    <div class="ctabs">${[['vol','Volume'],['dur','Duração'],['n','Treinos']].map(([k, n]) => `<button class="${progBar === k ? 'on' : ''}" data-act="pbar" data-id="${k}">${n}</button>`).join('')}</div></section>`;
   // recordes: melhor carga de cada exercício
   const best = {};
   dksP.forEach(k => Object.values(S[k].treino||{}).forEach(r => (r.series||[]).forEach(x => { if (!x.ok) return; const v = num(x.kg); if (v != null && (!best[r.nome] || v > best[r.nome].kg)) best[r.nome] = { kg:v, data:k.slice(4) }; })));
-  const bl = Object.entries(best).sort((a, b) => b[1].data < a[1].data ? -1 : 1).slice(0, 6);
-  if (bl.length) cardsG.push(`<section class="scard dark"><span class="k">Melhores cargas</span><h2 class="stt">Recordes</h2><div class="board">${bl.map(([n, v]) => `<div class="brow"><b>${esc(n)}</b><span class="led amb">${fmtN(v.kg)}</span></div>`).join('')}</div><div class="sgrow"></div></section>`);
-  const jogosC = []; dksP.forEach(k => { const J = S[k].jogo || {}; Object.keys(J).forEach(a => { if (J[a]) jogosC.push(J[a]); }); });
-  if (jogosC.length){ const g = jogosC.reduce((a, j) => a + (j.gols || 0), 0), ds = jogosC.filter(j => j.dor != null), md = ds.length ? ds.reduce((a, j) => a + j.dor, 0) / ds.length : null;
-    cardsG.push(`<section class="scard dark"><span class="k">Futsal</span><h2 class="stt">Seus jogos</h2><div class="board"><div class="sc3"><div class="tm"><span>JOGOS</span><b class="led wht">${jogosC.length}</b></div><div class="tm"><span>GOLS</span><b class="led grn">${g}</b></div><div class="tm"><span>DOR MÉDIA</span><b class="led amb">${md != null ? fmtN(md) : '–'}</b></div></div></div><div class="sgrow"></div></section>`); }
-  h += stories('st-prog', cardsG);
+  const bl = Object.entries(best).sort((a, b) => b[1].data < a[1].data ? -1 : 1).slice(0, 5);
+  if (bl.length) h += '<h2 class="sh2">Recordes</h2><div class="clst">' + bl.map(([n, v]) => `<div class="cli"><i style="background:#FFC93C"></i><span class="lm"><b>${esc(n)}</b><span>${fmtD(v.data)}</span></span><b class="led amb cv">${fmtN(v.kg)} kg</b></div>`).join('') + '</div>';
   const mes = hoje().slice(0, 7), dm = dksP.filter(k => k.slice(4, 11) === mes);
   const treinosMes = dm.filter(k => { const X = S[k]; return X.cardio || Object.values(X.ativ||{}).some(Boolean) || Object.values(X.treino||{}).some(r => (r.series||[]).some(x => x.ok)); }).length;
   const prMes = dm.reduce((a, k) => a + recordes(S[k], k.slice(4)).length, 0);
@@ -1055,20 +993,18 @@ function classPA(p){
 function renderSaude(){
   let h = '<h1>Saúde</h1>';
   const dores = []; Object.keys(S).filter(k => k.startsWith('dia:')).sort().forEach(k => { const J = S[k].jogo || {}; Object.keys(J).forEach(a => { if (J[a] && J[a].dor != null) dores.push({ data:k.slice(4), dor:J[a].dor }); }); });
-  const cardsS = [];
   if (dores.length){
     const ul = dores[dores.length - 1].dor, md = dores.reduce((a, x) => a + x.dor, 0) / dores.length, mx = Math.max(...dores.map(x => x.dor));
     const dd = dores.slice(-8), cor = v => v >= 7 ? '#FF4A3F' : v >= 4 ? '#F2C230' : '#3DD68C';
     const X = k => dd.length > 1 ? (12 + k * 266 / (dd.length - 1)).toFixed(1) : 145, Y = v => (8 + (10 - v) * 5.4).toFixed(1);
     const tend = dd.length > 1 ? (dd[dd.length - 1].dor < dd[0].dor ? `Melhorando: de ${dd[0].dor} para ${dd[dd.length - 1].dor} em ${dd.length} jogos.` : dd[dd.length - 1].dor > dd[0].dor ? `Piorou: de ${dd[0].dor} para ${dd[dd.length - 1].dor}. Vale falar com a fisio.` : 'Estável nos últimos jogos.') : 'Registre mais jogos pra ver a tendência.';
-    cardsS.push(`<section class="scard dark"><span class="k">Pubalgia</span><h2 class="stt">Dor depois do futsal</h2>
-      <div class="board"><div class="sc3"><div class="tm"><span>ÚLTIMO JOGO</span><b class="led" style="color:${cor(ul)}">${ul}</b></div><div class="tm"><span>MÉDIA</span><b class="led amb">${fmtN(md)}</b></div><div class="tm"><span>MAIOR</span><b class="led">${mx}</b></div></div></div>
+    h += `<section class="cpc"><small>Pubalgia · dor depois do futsal</small>
+      <div class="cboard"><div><small>ÚLTIMO</small><span class="led" style="color:${cor(ul)}">${ul}</span></div><div><small>MÉDIA</small><span class="led amb">${fmtN(md)}</span></div><div><small>MAIOR</small><span class="led">${mx}</span></div></div>
       <svg class="sline dor" viewBox="0 0 290 70" aria-hidden="true">${dd.length > 1 ? `<polyline points="${dd.map((x, k) => X(k) + ',' + Y(x.dor)).join(' ')}"/>` : ''}${dd.map((x, k) => `<circle cx="${X(k)}" cy="${Y(x.dor)}" r="5" style="fill:${cor(x.dor)}"/>`).join('')}</svg>
-      <p class="sp">${tend}</p><div class="sgrow"></div></section>`);
-  } else cardsS.push('<section class="scard dark"><span class="k">Pubalgia</span><h2 class="stt">Dor depois do futsal</h2><p class="sp">Depois do futsal de quinta, marque o jogo na tela Hoje e registre a dor de 0 a 10. O acompanhamento aparece aqui.</p><div class="sgrow"></div></section>');
+      <span class="cok ${dd.length > 1 && dd[dd.length - 1].dor > dd[0].dor ? 'bad' : ''}">${tend}</span></section>`;
+  } else h += '<section class="cpc"><small>Pubalgia · dor depois do futsal</small><p class="sp" style="margin-top:6px">Depois do futsal de quinta, marque o jogo na tela Hoje e registre a dor de 0 a 10. O acompanhamento aparece aqui.</p></section>';
   const lesoes = ((S.saude||{}).notas || '').split('\n').map(x => x.trim()).filter(Boolean);
-  if (lesoes.length) cardsS.push(`<section class="scard red"><span class="k">Histórico</span><h2 class="stt">Lesões e observações</h2><div class="board">${lesoes.slice(0, 7).map(x => `<div class="brow"><span class="led amb">●</span><b>${esc(x)}</b></div>`).join('')}</div><div class="sgrow"></div><button class="scta" data-act="golesao">Editar</button></section>`);
-  h += stories('st-saude', cardsS);
+  if (lesoes.length) h += `<div class="cph2"><h2 class="sh2">Lesões</h2><button class="slink" data-act="golesao">editar</button></div><div class="clst">${lesoes.map(x => `<div class="cli"><i style="background:#D7191F"></i><span class="lm"><b>${esc(x)}</b></span></div>`).join('')}</div>`;
   h += '<h2 class="mh">Notificações</h2><div class="panel" style="padding-top:12px">' + notifHtml() + '</div>';
   h += `<h2 class="mh" id="lesoes">Lesões e observações</h2><div class="f" style="margin-top:0"><textarea rows="5" data-f="snotas">${esc((S.saude||{}).notas||'')}</textarea></div>`;
   h += `<h2 class="mh">Conta</h2><p class="muted small">${esc(user && user.email || '')}</p><button class="btn danger" data-act="logout">Sair</button>`;
@@ -1110,16 +1046,21 @@ function renderAgenda(){
   const agora = new Date(), hhmm = pad2(agora.getHours()) + ':' + pad2(agora.getMinutes());
   const futuros = prox.filter(o => o.data > h0 || !o.e.hora || o.e.hora >= hhmm).slice(0, 5);
   const fisios = (S.agenda||[]).filter(e => e.tipo === 'fisio' && !e.semanal), fFeitas = fisios.filter(e => e.data < h0 || (e.data === h0 && (e.hora || '00:00') < hhmm)).length;
-  const cardsA = futuros.map((o, k) => {
-    const c = contagem(o), dl = o.data === h0 ? 'Hoje' : o.data === addDays(h0, 1) ? 'Amanhã' : DIAS_F[idxOf(parse(o.data))] + ', ' + fmtD(o.data);
-    const ring = o.e.tipo === 'fisio' && fisios.length ? `<div class="sring2">${anelSvg([{ r:18, cor: k === 0 ? '#1A1200' : '#F2C230', f: fFeitas / fisios.length }], 46)}<span><b>${fFeitas} de ${fisios.length}</b><small>sessões de fisio feitas</small></span></div>` : '';
-    return `<section class="scard ${k === 0 ? 'gold' : 'dark'}"><span class="k">${k === 0 ? 'Próximo compromisso' : 'Depois'}</span><h2 class="stt">${esc(o.e.titulo || TIPOS[o.e.tipo])}</h2>
-      <div class="board"><div class="sc2"><div class="tm"><span>${c.u || 'QUANDO'}</span><b class="led amb">${c.n}</b></div><div class="tm"><span>HORA</span><b class="led wht">${esc(o.e.hora || '--:--')}</b></div></div></div>
-      <p class="sp">${dl}${o.e.local ? ', ' + esc(o.e.local) : ''}${o.e.obs ? '. ' + esc(o.e.obs) : ''}</p>${ring}<div class="sgrow"></div></section>`;
+  const COR_T = { fisio:'#F2C230', jogo:'#22A060', medico:'#FF4A3F', exame:'#4C8DFF', outro:'#8E8D93' };
+  if (futuros.length){
+    const o = futuros[0], c = contagem(o), dl = o.data === h0 ? 'Hoje' : o.data === addDays(h0, 1) ? 'Amanhã' : DIAS_F[idxOf(parse(o.data))] + ', ' + fmtD(o.data);
+    const ses = o.e.tipo === 'fisio' && fisios.length ? ` · sessão ${Math.min(fisios.length, fFeitas + 1)} de ${fisios.length}` : '';
+    h += `<section class="cgold"><small>Próximo compromisso</small><h2>${esc(o.e.titulo || TIPOS[o.e.tipo])}</h2>
+      <div class="cboard c2"><div><small>${c.u || 'QUANDO'}</small><span class="led amb">${c.n}</span></div><div><small>HORA</small><span class="led wht">${esc(o.e.hora || '--:--')}</span></div></div>
+      <p>${dl}${o.e.local ? ' · ' + esc(o.e.local) : ''}${ses}${o.e.obs ? '. ' + esc(o.e.obs) : ''}</p></section>`;
+  }
+  if (!prox.length) h += '<p class="muted" style="margin-top:14px">Nada marcado nos próximos 30 dias.</p>';
+  let dAnt = '';
+  prox.forEach(o => {
+    if (o.data !== dAnt){ dAnt = o.data; const dd = parse(o.data); h += `<h3 class="cgrp">${o.data === h0 ? 'HOJE' : o.data === addDays(h0, 1) ? 'AMANHÃ' : DIAS_F[idxOf(dd)].toUpperCase() + ', ' + dd.getDate() + '/' + (dd.getMonth() + 1)}</h3>`; }
+    const e = o.e, sub = [e.hora || 'dia todo', e.local, e.obs, e.semanal ? 'toda semana' : ''].filter(Boolean).map(esc).join(' · ');
+    h += `<div class="cli"><i style="background:${COR_T[e.tipo] || '#8E8D93'}"></i><span class="lm"><b>${esc(e.titulo || TIPOS[e.tipo])}</b><span>${sub}</span></span><button class="rm" data-act="arem" data-id="${e.id}" aria-label="Apagar">×</button></div>`;
   });
-  h += stories('st-agenda', cardsA);
-  h += '<h2 class="mh">Próximos 30 dias</h2>';
-  h += prox.length ? prox.map(o => evtHtml(o, true)).join('') : '<p class="muted">Nada marcado.</p>';
   const pass = (S.agenda||[]).filter(e => !e.semanal && e.data < h0).sort((a,b) => a.data < b.data ? 1 : -1).slice(0,10);
   if (pass.length) h += '<h2 class="mh">Passados</h2>' + pass.map(e => evtHtml({ e, data:e.data }, true)).join('');
   VIEW.innerHTML = h;
@@ -1155,12 +1096,12 @@ function bip(){
   } catch(e){}
   if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
 }
-function abrirModo(exId){
+function abrirModo(exId, lista){
   const L = dia(cur), t = treinoDo(cur);
   if (!t || !t.itens.length) return;
   let e = t.itens.find(x => x.id === exId);
   if (!e || exFeito(L, e)) e = t.itens.find(x => !exFeito(L, x)) || t.itens[0];
-  modo = { ex: e.id, rest: null, fimTreino: !t.itens.some(x => !exFeito(L, x)) };
+  modo = { ex: e.id, rest: null, fimTreino: !t.itens.some(x => !exFeito(L, x)), lista: !!lista };
   if (!L.inicio && !modo.fimTreino){ L.inicio = Date.now(); delete L.fim; touch(cur); toast('⏱ Cronômetro iniciado'); }
   try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume && audioCtx.resume(); } catch(_){}
   manterTelaAcesa(true);
@@ -1171,6 +1112,7 @@ function fecharModo(){
   render(); window.scrollTo(0, 0);
 }
 function renderModo(){
+  if (modo.lista) return renderLog();
   const L = dia(cur), t = treinoDo(cur);
   const e = t.itens.find(x => x.id === modo.ex) || t.itens[0];
   const r = getEx(L, e); r.nome = e.nome;
@@ -1218,6 +1160,39 @@ function renderModo(){
     <div class="mlinks"><button class="mlink" data-act="mskip">Pular exercício</button><button class="mlink" data-act="mlista" data-ex="${e.id}">Ver lista do treino</button></div></div>`;
   return h;
 }
+function renderLog(){
+  const L = dia(cur), t = treinoDo(cur);
+  const exOk = t.itens.filter(x => exFeito(L, x)).length, todos = exOk === t.itens.length;
+  let h = `<div class="clog"><header class="clh"><button class="mx" data-act="msair" aria-label="Sair">${ICON.x}</button><b>${esc(t.nome)}</b><button class="cfin ${todos ? 'pulse' : ''}" data-act="mfinal">Finalizar</button></header>
+    <div class="cboard"><div><small>FEITOS</small><span class="led">${exOk}/${t.itens.length}</span></div><div><small>TEMPO</small><span class="led amb" id="mdur">${L.inicio ? fmtDur((L.fim || Date.now()) - L.inicio) : '0:00'}</span></div><div><small>VOLUME KG</small><span class="led wht" id="vvol">${Math.round(volDia(L)).toLocaleString('pt-BR')}</span></div></div>`;
+  t.itens.forEach((e, j) => {
+    const r = getEx(L, e), done = exFeito(L, e), nOk = r.series.filter(x => x.ok).length, last = lastSets(e, cur), tempo = ehTempo(e);
+    const lastMax = last ? Math.max(0, ...last.map(x => num(x.kg) || 0)) : 0;
+    const head = `<button class="ceh" data-act="logex" data-ex="${e.id}"><span class="cn">${pad2(j + 1)}</span><span class="lm"><b>${esc(e.nome)}</b><span>${esc(e.series)}×${esc(e.reps)}${lastMax ? ' · último ' + fmtN(lastMax) + ' kg' : ''}${e.obs ? ' · ' + esc(e.obs) : ''}</span></span><span class="cc">${done ? CHECK : nOk + '/' + r.series.length}</span></button>`;
+    if (e.id !== modo.ex){ h += `<section class="cexc ${done ? 'done' : ''}" id="ex-${e.id}">${head}</section>`; return; }
+    const sg = sugestao(e, cur);
+    h += `<section class="cexc cur" id="ex-${e.id}">${head}`;
+    if (sg && !done && !tempo) h += `<div class="csug ${sg.tipo}"><span>${sg.tipo === 'sobe' ? '▲' : '='} ${esc(sg.msg)}</span><button data-act="usasug" data-ex="${e.id}" data-v="${sg.kg}">Usar ${fmtN(sg.kg)} kg</button></div>`;
+    h += `<div class="ctab"><div class="ctr th"><span>SÉRIE</span><span>ANTERIOR</span><span>KG</span><span>${tempo ? 'SEG' : 'REPS'}</span><span></span></div>`;
+    r.series.forEach((x, k) => {
+      const pv = last && last[k] && (last[k].kg || last[k].reps) ? (last[k].kg ? last[k].kg + ' × ' : '') + (last[k].reps || '–') : '–';
+      const ph = sg ? String(sg.kg).replace('.', ',') : last && last[k] ? last[k].kg : '';
+      h += `<div class="ctr ${x.ok ? 'ok' : ''}"><span class="sn">${k + 1}</span><span class="pv">${esc(pv)}</span>
+        <input inputmode="decimal" aria-label="Carga série ${k + 1}" data-f="kg" data-ex="${e.id}" data-i="${k}" value="${esc(x.kg)}" placeholder="${esc(ph || '')}">
+        <input inputmode="numeric" aria-label="Repetições série ${k + 1}" data-f="reps" data-ex="${e.id}" data-i="${k}" value="${esc(x.reps)}" placeholder="${esc(numReps(e.reps))}">
+        <button class="cck" data-act="setok" data-ex="${e.id}" data-i="${k}" aria-label="Concluir série ${k + 1}">${CHECK}</button></div>`;
+    });
+    h += `</div><div class="cadd"><button data-act="addset" data-ex="${e.id}">+ série</button>${r.series.length > 1 ? `<button data-act="delset" data-ex="${e.id}" data-i="${r.series.length - 1}">− série</button>` : ''}</div>`;
+    if (modo.rest){
+      const rest = Math.max(0, Math.ceil((modo.rest.fim - Date.now()) / 1000));
+      h += `<div class="crest"><span class="lm"><small>Descanso</small><b class="led blu" id="mrv">${Math.floor(rest / 60)}:${pad2(rest % 60)}</b></span><div class="bar"><i id="mrb" style="width:${(rest / modo.rest.total * 100).toFixed(1)}%"></i></div><button data-act="mrest" data-v="-15">−15</button><button data-act="mrest" data-v="15">+15</button><button data-act="mpular">Pular</button></div>`;
+    }
+    h += '</section>';
+  });
+  if (todos) h += '<button class="cgo" data-act="mfinal">Finalizar e ver o resumo</button>';
+  h += '<button class="slink clfoco" data-act="mfoco">Modo foco: um exercício por vez</button></div>';
+  return h;
+}
 function tickModo(){
   clearInterval(modoTick);
   if (!modo) return;
@@ -1230,7 +1205,8 @@ function tickModo(){
       const v = $('#mrv'), rf = $('#mrf');
       if (v) v.textContent = Math.floor(rest / 60) + ':' + pad2(rest % 60);
       if (rf) rf.setAttribute('stroke-dashoffset', (691.2 * (1 - rest / modo.rest.total)).toFixed(1));
-      if (rest <= 0){ modo.rest = null; bip(); render(); }
+      const rb = $('#mrb'); if (rb) rb.style.width = (rest / modo.rest.total * 100).toFixed(1) + '%';
+      if (rest <= 0){ modo.rest = null; bip(); if (modo.lista) keepScroll(render); else render(); }
     }
   }, 250);
 }
@@ -1394,12 +1370,15 @@ VIEW.addEventListener('click', async e => {
     case 'tabag': tab = 'agenda'; render(); window.scrollTo(0,0); return;
     case 'tabprog': tab = 'prog'; render(); window.scrollTo(0,0); return;
     case 'modo': abrirModo(exId); return;
+    case 'log': abrirModo(exId, true); return;
+    case 'logex': if (modo){ modo.ex = exId; keepScroll(render); const el = document.getElementById('ex-' + exId); if (el) el.scrollIntoView({ behavior:'smooth', block:'nearest' }); } return;
+    case 'mfoco': if (modo){ modo.lista = false; const LL = dia(cur), tt = treinoDo(cur); modo.fimTreino = !tt.itens.some(x => !exFeito(LL, x)); render(); window.scrollTo(0,0); } return;
     case 'msair': fecharModo(); return;
-    case 'mlista': { const id2 = exId; modo = null; clearInterval(modoTick); manterTelaAcesa(false); openEx[id2] = true; tab = 'hoje'; render(); const el = document.querySelector('details.ex[data-ex="' + id2 + '"]'); if (el) el.scrollIntoView({ block:'start' }); return; }
+    case 'mlista': if (modo){ modo.lista = true; modo.rest = null; if (exId) modo.ex = exId; render(); window.scrollTo(0,0); } return;
     case 'mfinal': { const LL = dia(cur); if (LL.inicio && !LL.fim){ LL.fim = Date.now(); touch(cur); } modo = null; clearInterval(modoTick); manterTelaAcesa(false); tab = 'hoje'; render(); window.scrollTo(0,0); return; }
     case 'mfeita': concluirSerieModo(); return;
-    case 'mpular': if (modo){ modo.rest = null; render(); } return;
-    case 'mrest': if (modo && modo.rest){ const d = parseInt(b.dataset.v); modo.rest.fim += d * 1000; modo.rest.total = Math.max(15, modo.rest.total + d); P().descanso = Math.max(15, Math.min(600, (P().descanso || DESCANSO_PADRAO) + d)); save('plano'); render(); } return;
+    case 'mpular': if (modo){ modo.rest = null; if (modo.lista) keepScroll(render); else render(); } return;
+    case 'mrest': if (modo && modo.rest){ const d = parseInt(b.dataset.v); modo.rest.fim += d * 1000; modo.rest.total = Math.max(15, modo.rest.total + d); P().descanso = Math.max(15, Math.min(600, (P().descanso || DESCANSO_PADRAO) + d)); save('plano'); if (modo.lista) keepScroll(render); else render(); } return;
     case 'mskip': { const LL = dia(cur), tt = treinoDo(cur), nx = proxExercicio(LL, tt, modo.ex); if (nx) modo.ex = nx.id; render(); return; }
     case 'mkg': case 'mrep': {
       const LL = dia(cur), tt = treinoDo(cur), ee = tt.itens.find(x => x.id === modo.ex), rr = getEx(LL, ee), ss = rr.series[serieAtual(rr)];
@@ -1424,6 +1403,7 @@ VIEW.addEventListener('click', async e => {
     case 'tset': { const k = parseInt(id); if (k === idxOf(parse(cur))) delete L.treinoDia; else L.treinoDia = k; pickOpen = false; touch(cur); render(); window.scrollTo(0,0); return; }
     case 'dtoday': cur = hoje(); render(); return;
     case 'calsel': calSel = calSel === id ? null : id; keepScroll(render); return;
+    case 'pbar': progBar = id; keepScroll(render); return;
     case 'calf': calFiltro = id; keepScroll(render); return;
     case 'goday': cur = id; tab = 'hoje'; render(); window.scrollTo(0,0); return;
 
@@ -1441,7 +1421,17 @@ VIEW.addEventListener('click', async e => {
         const v = num(s.kg), prev = bestKg(exo.nome, cur);
         if (v != null && prev != null && v > prev && (mxAntes == null || v > mxAntes)){ toast('🏆 Novo recorde: ' + exo.nome + ' · ' + fmtN(v) + ' kg'); if (navigator.vibrate) navigator.vibrate([40,40,80]); }
       }
-      r.nome = exo.nome; touch(cur); keepScroll(render); return;
+      r.nome = exo.nome; touch(cur);
+      if (modo && modo.lista){
+        if (s.ok){
+          if (r.series.every(x => x.ok)){ const nx = proxExercicio(L, tr, exo.id); if (nx){ modo.ex = nx.id; } }
+          const fimTudo = !tr.itens.some(x => !exFeito(L, x));
+          modo.rest = fimTudo ? null : { fim: Date.now() + (P().descanso || DESCANSO_PADRAO) * 1000, total: (P().descanso || DESCANSO_PADRAO) };
+          if (fimTudo){ bip(); toast('🏁 Treino completo!'); }
+        }
+        keepScroll(render); const el = document.getElementById('ex-' + modo.ex); if (el) el.scrollIntoView({ behavior:'smooth', block:'nearest' }); return;
+      }
+      keepScroll(render); return;
     }
     case 'addset': { e.preventDefault(); const exo = treinoDo(cur).itens.find(x => x.id === exId); getEx(L, exo).series.push({ kg:'', reps:'', ok:false }); touch(cur); keepScroll(render); return; }
     case 'delset': { e.preventDefault(); const r = L.treino[exId]; if (r && r.series.length > 1){ r.series.splice(i,1); touch(cur); keepScroll(render); } return; }
@@ -1452,7 +1442,7 @@ VIEW.addEventListener('click', async e => {
     case 'agua': L.agua = Math.max(0, (L.agua||0) + parseInt(b.dataset.v)); touch(cur); keepScroll(render); return;
 
     case 'pseg': planSeg = id; render(); return;
-    case 'pday': { planDay = parseInt(id); trackPos['st-plano'] = undefined; render(); const ed = $('#editor'); if (ed && b.closest('.scard')) ed.scrollIntoView({ behavior:'smooth', block:'start' }); return; }
+    case 'pday': { planDay = parseInt(id); render(); const ed = $('#editor'); if (ed) ed.scrollIntoView({ behavior:'smooth', block:'start' }); return; }
     case 'eup': if (i > 0){ const x = t.itens.splice(i,1)[0]; t.itens.splice(i-1,0,x); save('plano'); keepScroll(render); } return;
     case 'edown': if (i < t.itens.length-1){ const x = t.itens.splice(i,1)[0]; t.itens.splice(i+1,0,x); save('plano'); keepScroll(render); } return;
     case 'edel': if (confirm('Remover "' + t.itens[i].nome + '"?')){ t.itens.splice(i,1); save('plano'); keepScroll(render); } return;
