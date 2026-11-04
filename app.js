@@ -60,7 +60,7 @@ function seedPlano(){
     refeicoes: [
       { id:uid(), nome:'Café da manhã', hora:'', itens:['3 ovos','Café preto','2 pães'] },
       { id:uid(), nome:'Almoço', hora:'', itens:['180 g de proteína','150 g de carbo (arroz ou massa)','Salada à vontade'] },
-      { id:uid(), nome:'Lanche', hora:'', itens:['100 g de whey','15 g de pasta de amendoim','1 pudim diet'] },
+      { id:uid(), nome:'Lanche', hora:'', itens:['30 g de whey','15 g de pasta de amendoim','1 pudim diet','1 fruta (maçã, banana ou mamão)'] },
       { id:uid(), nome:'Pós-treino', hora:'', itens:['30 g de albumina'] },
       { id:uid(), nome:'Jantar', hora:'', itens:['180 g de proteína','150 g de carbo (arroz ou massa)','Salada à vontade'] }
     ],
@@ -196,6 +196,15 @@ async function start(){
     status('Sem conexão. Mostrando a última cópia salva neste aparelho.', true);
   }
   if (!S.plano){ S.plano = seedPlano(); save('plano'); }
+  // ajuste 04/11: whey do lanche é 30 g e entra 1 fruta
+  if (!(S.plano.ajustes||{}).lanche0411){
+    const lan = (S.plano.refeicoes||[]).find(m => /lanche/i.test(m.nome));
+    if (lan){
+      lan.itens = (lan.itens||[]).map(x => /^\s*100\s*g\s*de\s*whey/i.test(x) ? '30 g de whey' : x);
+      if (!lan.itens.some(x => /fruta|banana|maçã|maca|mamão/i.test(x))) lan.itens.push('1 fruta (maçã, banana ou mamão)');
+    }
+    S.plano.ajustes = { ...(S.plano.ajustes||{}), lanche0411:true }; save('plano');
+  }
   if (!S.medidas){ S.medidas = [{ id:uid(), data:'2026-10-26', peso:103.5 }]; save('medidas'); }
   if (!S.pressao){ S.pressao = []; save('pressao'); }
   if (!S.exames){ S.exames = []; save('exames'); }
