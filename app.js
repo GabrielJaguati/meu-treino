@@ -76,6 +76,113 @@ function seedPlano(){
     metaAgua: 3500
   };
 }
+
+/* ---------- plano da consultoria (06/11/2026) ---------- */
+function planoConsultoria(){
+  const r = (n, s, rp) => ex(n, s, rp || '8-12');
+  return {
+    treinos: {
+      0: { nome:'Costas e bíceps', cardio:'', atividades:[], itens:[
+        r('Puxada neutra triângulo',4), r('Puxada fechada barra reta',4), r('Pulldown com corda',4), r('Remada supinada máquina',4),
+        r('Remada unilateral halteres, pegada neutra (serrote)',4), r('Rosca scott com barra W',4), r('Rosca alternada banco inclinado',4) ]},
+      1: { nome:'Perna', cardio:'', atividades:[], itens:[
+        r('Cadeira extensora',4), r('Agachamento smith',4), r('Leg press 45',4), r('Búlgaro com halter, mão inversa',4), r('Cadeira flexora',4), r('Abdução de quadril máquina',4) ]},
+      2: { nome:'Peito e tríceps', cardio:'', atividades:[], itens:[
+        r('Supino reto máquina',4), r('Crucifixo na polia média',4), r('Crucifixo inclinado na polia',4), r('Supino inclinado smith',4), r('Tríceps na polia barra W',4), r('Tríceps francês sentado com barra W',4) ]},
+      3: { nome:'Superiores 1 + futsal', cardio:'', atividades:['Futebol de quinta (futsal)'], itens:[
+        r('Rosca scott com barra W',4), r('Rosca direta barra W',4), r('Rosca direta banco inclinado',4), r('Rosca martelo com halteres',4),
+        r('Elevação lateral inclinado com halteres',4,'10-15'), r('Elevação lateral simultânea na polia baixa',4,'10-15') ]},
+      4: { nome:'Superiores 2', cardio:'', atividades:[], itens:[
+        r('Supino reto com barra reta',3), r('Crossover polia alta',4,'10-12'), r('Crucifixo sentado na polia',3,'10-12'), r('Tríceps na polia com corda',4),
+        r('Tríceps francês na polia com corda',4), r('Desenvolvimento no smith',4,'8'), r('Elevação frontal alternada',4,'15') ]},
+      5: { nome:'Descanso', cardio:'', atividades:[], itens:[] },
+      6: { nome:'Descanso', cardio:'', atividades:[], itens:[] }
+    },
+    refeicoes: [
+      { id:uid(), nome:'Café da manhã', hora:'08:00', itens:[
+        'Carboidrato: 2 pães franceses | 5 fatias de pão de forma integral',
+        'Proteína: 3 ovos + 4 claras | 5 ovos | 2 ovos + 30 g de whey (shake com água)',
+        'Fixo: 30 g de muçarela', 'Fixo: 150 g de mamão + 10 g de chia por cima' ] },
+      { id:uid(), nome:'Almoço', hora:'12:30', itens:[
+        'Carboidrato: 200 g de arroz branco | 190 g de macarrão | 300 g de batata-doce | 460 g de batata inglesa',
+        'Proteína: 160 g de peito de frango | 140 g de patinho bovino | 140 g de carne moída magra (patinho) | 190 g de tilápia',
+        'Fixo: 100 g de feijão', 'Fixo: 350 g de legumes', 'Fixo: 5 ml de azeite de oliva extravirgem', 'Opcional: salada à vontade' ] },
+      { id:uid(), nome:'Lanche da tarde', hora:'16:30', itens:[
+        'Opção 1: 40 g de whey protein; 130 g de banana; 30 g de aveia',
+        'Opção 2: 3 fatias de pão de forma integral; 100 g de frango desfiado; 50 g de banana amassada',
+        'Fixo: 20 g de pasta de amendoim', 'Fixo: 10 g de semente de girassol', 'Fixo: 5 g de psyllium',
+        'Dica: na opção 1, bata com água ou misture tudo no pote junto com o fixo. Na opção 2, misture o fixo na banana amassada.' ] },
+      { id:uid(), nome:'Jantar', hora:'20:30', horaDia:{ 3:'21:45' }, itens:[
+        'Carboidrato: 200 g de arroz branco | 190 g de macarrão | 190 g de aipim | 300 g de batata-doce',
+        'Proteína: 190 g de peito de frango | 170 g de patinho bovino | 170 g de carne moída magra (patinho)',
+        'Fixo: 350 g de legumes', 'Fixo: 5 ml de azeite de oliva extravirgem', 'Opcional: salada à vontade',
+        'Especial (máx. 2x por semana): 1 pão brioche ou 1 cacetinho; 200 g de patinho moído (pesado cru); 2 fatias de muçarela; 20 g de requeijão light; salada à vontade' ] },
+      { id:uid(), nome:'Ceia', hora:'23:00', itens:[ 'Fixo: 40 g de whey protein com água', 'Fixo: 30 g de aveia' ] }
+    ]
+  };
+}
+// lê as linhas da refeição: "Grupo: a | b", "Fixo: x", "Opcional: x", "Opção 1: a; b", "Especial (2x): a; b", "Dica: ..."
+function refParse(m){
+  const R = { grupos:[], fixo:[], opc:[], cards:[], dica:'' };
+  (m.itens || []).forEach(l => {
+    const k = l.indexOf(':'), cab = k > 0 ? l.slice(0, k).trim() : '', resto = k > 0 ? l.slice(k + 1).trim() : l.trim(), c = semAcento(cab);
+    if (!cab || cab.length > 40){ R.fixo.push(l.trim()); return; }
+    if (/^fixo/.test(c)) R.fixo.push(resto);
+    else if (/^opcional/.test(c)) R.opc.push(resto);
+    else if (/^(dica|obs)/.test(c)) R.dica = resto;
+    else if (/^(opcao|especial|cardapio)/.test(c)){ const lim = (cab.match(/(\d+)\s*x/i) || [])[1]; R.cards.push({ nome: /^especial/.test(c) ? 'Jantar especial' : cab.replace(/\s*\(.*\)\s*/, '').trim(), itens: resto.split(';').map(x => x.trim()).filter(Boolean), especial: /^especial/.test(c), lim: lim ? +lim : 0 }); }
+    else if (resto.includes('|')) R.grupos.push({ nome:cab, ops: resto.split('|').map(x => x.trim()).filter(Boolean) });
+    else R.fixo.push(l.trim());
+  });
+  return R;
+}
+function refEsc(L, m, R){ const e = ((L.refEsc || {})[m.id]) || {}; const c = e.c != null ? e.c : (R.grupos.length || !R.cards.length ? -1 : 0); return { c, g: e.g || [] }; }
+function refItens(L, m){
+  const R = refParse(m), e = refEsc(L, m, R);
+  if (e.c >= 0 && R.cards[e.c]){ const cd = R.cards[e.c]; return cd.especial ? cd.itens : [...cd.itens, ...R.fixo]; }
+  return [...R.grupos.map((g, k) => g.ops[e.g[k] || 0]), ...R.fixo];
+}
+function horaRef(m, ds){ return ((m.horaDia || {})[idxOf(parse(ds))]) || m.hora || ''; }
+function usosEspecial(m, ds, ci){ // quantas vezes o jantar especial foi usado na semana (seg a dom) de ds
+  const ini = addDays(ds, -idxOf(parse(ds))); let n = 0;
+  for (let k = 0; k < 7; k++){ const X = S['dia:' + addDays(ini, k)]; const e = X && (X.refEsc || {})[m.id]; if (e && e.c === ci) n++; }
+  return n;
+}
+function refHtml(L, m, ds){
+  const R = refParse(m), e = refEsc(L, m, R), on = !!L.ref[m.id], hr = horaRef(m, ds);
+  let h = `<div class="rf ${on ? 'done' : ''}"><button class="row ${on ? 'done' : ''}" data-act="ref" data-id="${m.id}" aria-pressed="${on}"><span class="c">${CHECK}</span><span class="rowmain"><span class="rn">${hr ? esc(hr) + ' · ' : ''}${esc(m.nome)}</span><span class="rd">${esc(refItens(L, m).join(' · '))}</span></span></button>`;
+  const simples = !R.grupos.length && !R.cards.length;
+  if (!simples && !on){
+    if (R.cards.length){
+      const modos = [...(R.grupos.length ? [{ k:-1, n:'Cardápio normal' }] : []), ...R.cards.map((cd, k) => ({ k, n: cd.nome + (cd.lim ? ` (${usosEspecial(m, ds, k) - (e.c === k ? 1 : 0)}/${cd.lim} na semana)` : '') }))];
+      h += `<div class="rop"><span class="rg2">Escolha</span><div class="rchips">${modos.map(x => `<button class="${e.c === x.k ? 'on' : ''}" data-act="refc" data-id="${m.id}" data-v="${x.k}">${esc(x.n)}</button>`).join('')}</div></div>`;
+    }
+    if (e.c === -1) R.grupos.forEach((g, gi) => { h += `<div class="rop"><span class="rg2">${esc(g.nome)}</span><div class="rchips">${g.ops.map((o, oi) => `<button class="${(e.g[gi] || 0) === oi ? 'on' : ''}" data-act="refg" data-id="${m.id}" data-g="${gi}" data-v="${oi}">${esc(o)}</button>`).join('')}</div></div>`; });
+    else if (R.cards[e.c]){ const cd = R.cards[e.c]; h += `<ul class="rlist">${cd.itens.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`; if (cd.lim && usosEspecial(m, ds, e.c) > cd.lim) h += `<p class="rwarn">Já passou de ${cd.lim}x nesta semana.</p>`; }
+    const fx = e.c >= 0 && R.cards[e.c] && R.cards[e.c].especial ? [] : R.fixo;
+    if (fx.length) h += `<div class="rop"><span class="rg2">Fixo</span><ul class="rlist">${fx.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
+    if (R.opc.length && !(e.c >= 0 && R.cards[e.c] && R.cards[e.c].especial)) h += `<p class="rdica">Opcional: ${R.opc.map(esc).join(', ')}</p>`;
+    if (R.dica) h += `<p class="rdica">${esc(R.dica)}</p>`;
+  }
+  return h + '</div>';
+}
+
+const AVAL_0511 = { id:'av-0511', data:'2026-11-05', local:'Atlas Centro de Saúde e Performance', avaliador:'Christian Monteiro Canabarro', protocolo:'Jackson & Pollock 7 dobras + Siri',
+  peso:104.0, altura:1.89, imc:29.1, gordura:17.8, mgorda:18.5, mlg:85.5, ossea:13.6, densidade:1.0582, somaDobras:124.0,
+  dobras:{ 'Subescapular':20, 'Tricipital':6, 'Abdominal':33, 'Supra-ilíaca':20, 'Peitoral':5, 'Coxa medial':23, 'Axilar média':17 },
+  perimetros:{ 'Ombros':126, 'Tórax':102, 'Cintura':88, 'Abdômen':94, 'Quadril':108, 'Braço contraído D':42, 'Braço relaxado D':39, 'Antebraço D':30.5, 'Coxa medial D':68.8, 'Panturrilha D':43 },
+  diametros:{ 'Punho':5.7, 'Cotovelo':7.3, 'Joelho':10.2, 'Tornozelo':7.2 }, proxima:'2026-12-05' };
+function avalHtml(){
+  const A = (S.avaliacoes || []).slice().sort((a, b) => a.data < b.data ? -1 : 1); if (!A.length) return '';
+  const a = A[A.length - 1], ant = A.length > 1 ? A[A.length - 2] : null;
+  const dif = (k, inv) => { if (!ant || ant[k] == null) return ''; const d = a[k] - ant[k]; if (!d) return '<em>=</em>'; const bom = inv ? d > 0 : d < 0; return `<em class="${bom ? 'ok' : 'bad'}">${d > 0 ? '▲' : '▼'} ${fmtN(Math.abs(d))}</em>`; };
+  const tab = (o, u) => '<div class="avt">' + Object.entries(o).map(([k, v]) => { const pv = ant && ant[u] && ant[u][k] != null ? ant[u][k] : null; return `<div><span>${esc(k)}</span><b>${fmtN(v)}${pv != null && pv !== v ? ` <em class="${v < pv ? 'ok' : 'bad'}">${v < pv ? '▼' : '▲'}${fmtN(Math.abs(v - pv))}</em>` : ''}</b></div>`; }).join('') + '</div>';
+  let h = `<h2 class="sh2">Avaliação física</h2><section class="cpc"><div class="cph"><small>${fmtD(a.data)}/${a.data.slice(0, 4)} · ${esc(a.local || '')}</small>${a.proxima ? `<small>próxima: <b>${fmtD(a.proxima)}</b></small>` : ''}</div>
+    <div class="cboard"><div><small>GORDURA</small><span class="led">${fmtN(a.gordura)}%</span>${dif('gordura')}</div><div><small>MASSA MAGRA</small><span class="led grn">${fmtN(a.mlg)}</span>${dif('mlg', true)}</div><div><small>CINTURA</small><span class="led amb">${fmtN(a.perimetros.Cintura)}</span></div></div>
+    <p class="sp" style="margin:4px 0 0">Peso ${fmtN(a.peso)} kg · massa gorda ${fmtN(a.mgorda)} kg · IMC ${fmtN(a.imc)} · abdômen ${fmtN(a.perimetros['Abdômen'])} cm</p>
+    <details class="avd"><summary>Dobras e medidas</summary><p class="rg2" style="margin:10px 0 4px">DOBRAS (MM) · soma ${fmtN(a.somaDobras)}</p>${tab(a.dobras, 'dobras')}<p class="rg2" style="margin:12px 0 4px">PERÍMETROS (CM)</p>${tab(a.perimetros, 'perimetros')}<p class="rdica" style="margin:10px 0 0">${esc(a.protocolo || '')}${a.avaliador ? ' · ' + esc(a.avaliador) : ''}. Massa magra aqui é massa livre de gordura (músculo, osso, órgãos e água).</p></details></section>`;
+  return h;
+}
 const SEED_NOTAS = 'LCA do joelho direito rompido (operado em 2018)\n5º metacarpo da mão direita fraturado\n3 tendões do tornozelo direito rompidos\nPubalgia em tratamento com fisio às sextas (out/2026)';
 
 /* ---------- estado ---------- */
@@ -195,7 +302,21 @@ async function start(){
     try { S = JSON.parse(localStorage.getItem(cacheKey())) || {}; } catch(_) { S = {}; }
     status('Sem conexão. Mostrando a última cópia salva neste aparelho.', true);
   }
-  if (!S.plano){ S.plano = seedPlano(); save('plano'); }
+  if (!S.plano){ S.plano = { ...seedPlano(), ...planoConsultoria(), ajustes:{ consultoria0611:true, lanche0411:true } }; save('plano'); }
+  // avaliação física 05/11 (Atlas)
+  if (!(S.avaliacoes || []).some(a => a.id === AVAL_0511.id)){
+    S.avaliacoes = [...(S.avaliacoes || []), AVAL_0511]; save('avaliacoes');
+    if (!(S.medidas || []).some(m => m.data === '2026-11-05')){ S.medidas = [...(S.medidas || []), { id:uid(), data:'2026-11-05', peso:104, cintura:88, braco:42, peito:102, coxa:68.8, gordura:17.8 }]; save('medidas'); }
+    if (!(S.agenda || []).some(e => /reavalia/i.test(e.titulo || ''))){ S.agenda = [...(S.agenda || []), { id:uid(), tipo:'outro', titulo:'Reavaliação física', data:'2026-12-05', hora:'', local:'Atlas, Cachoeirinha', obs:'Mesmo protocolo da avaliação de 05/11', semanal:false }]; save('agenda'); }
+  }
+  // consultoria (06/11): troca treino e dieta, entra creatina
+  if (!(S.plano.ajustes||{}).consultoria0611){
+    const C = planoConsultoria();
+    S.plano.treinosAntes = S.plano.treinos; S.plano.refeicoesAntes = S.plano.refeicoes;
+    S.plano.treinos = C.treinos; S.plano.refeicoes = C.refeicoes;
+    if (!(S.plano.suplementos||[]).some(x => /creatina/i.test(x.nome))) (S.plano.suplementos = S.plano.suplementos || []).push({ id:uid(), nome:'Creatina', dose:'5 g', hora:'Junto com uma refeição', dias:[0,1,2,3,4,5,6] });
+    S.plano.ajustes = { ...(S.plano.ajustes||{}), consultoria0611:true, lanche0411:true }; save('plano');
+  }
   // ajuste 04/11: whey do lanche é 30 g e entra 1 fruta
   if (!(S.plano.ajustes||{}).lanche0411){
     const lan = (S.plano.refeicoes||[]).find(m => /lanche/i.test(m.nome));
@@ -777,7 +898,7 @@ function renderHoje(){
 
   // lista do dia
   const refs = P().refeicoes, pend = refs.filter(m => !L.ref[m.id]);
-  const prxRef = pend.find(m => !m.hora || m.hora >= hhmm) || pend[0];
+  const prxRef = pend.find(m => !horaRef(m, cur) || horaRef(m, cur) >= hhmm) || pend[0];
   const supPend = sup.filter(x => !L.supl[x.id]);
   const COR_TIPO = { fisio:'#F2C230', jogo:'#22A060', medico:'#FF4A3F', exame:'#4C8DFF', outro:'#8E8D93' };
   const rows = [];
@@ -790,7 +911,7 @@ function renderHoje(){
   });
   const ag = L.agua || 0;
   rows.push(`<div class="cli"><i style="background:#4C8DFF"></i><span class="lm"><b>Água</b><span>${ag >= meta ? 'meta do dia batida' : 'faltam ' + fmtN((meta - ag) / 1000) + ' L de ' + fmtN(meta / 1000) + ' L'}</span></span><b class="led blu cv">${fmtN(ag / 1000)}L</b><button class="cpill ghost" data-act="agua" data-v="-250" aria-label="Tirar 250 ml">−</button><button class="cpill blue" data-act="agua" data-v="250">+250</button></div>`);
-  if (prxRef) rows.push(`<div class="cli"><i style="background:#22A060"></i><span class="lm"><b>${esc(prxRef.nome)}${prxRef.hora ? ' · ' + esc(prxRef.hora) : ''}</b><span>${esc((prxRef.itens||[]).join(', '))}</span></span><button class="cpill" data-act="ref" data-id="${prxRef.id}">Comi</button></div>`);
+  if (prxRef) rows.push(`<div class="cli"><i style="background:#22A060"></i><span class="lm"><b>${esc(prxRef.nome)}${horaRef(prxRef, cur) ? ' · ' + esc(horaRef(prxRef, cur)) : ''}</b><span>${esc(refItens(L, prxRef).join(', '))}</span></span><button class="cpill" data-act="ref" data-id="${prxRef.id}">Comi</button></div>`);
   supPend.slice(0, 3).forEach(x => rows.push(`<div class="cli"><i style="background:#22A060"></i><span class="lm"><b>${esc(x.nome)}</b><span>${esc([x.dose, x.hora].filter(Boolean).join(', '))}</span></span><button class="cpill" data-act="supl" data-id="${x.id}">Tomei</button></div>`));
   if (supPend.length > 3) rows.push(`<p class="cmore">+ ${supPend.length - 3} suplementos na lista abaixo</p>`);
   h += `<div class="clst">${rows.join('')}</div>`;
@@ -805,7 +926,7 @@ function renderHoje(){
   (t.atividades||[]).forEach(a => { b += checkRow('ativ', a, esc(a), !!L.ativ[a]); if (L.ativ[a]) b += jogoHtml(L, a); });
   if (b) h += panel(t.itens.length ? 'Extras do treino' : 'Treino', IC.treino, b);
 
-  b = P().refeicoes.map(m => checkRow('ref', m.id, (m.hora ? esc(m.hora)+' · ' : '') + esc(m.nome), !!L.ref[m.id], esc((m.itens||[]).join(' · ')))).join('');
+  b = P().refeicoes.map(m => refHtml(L, m, cur)).join('');
   h += panel('Alimentação', IC.comida, b, `<span class="pc">${refOk}/${P().refeicoes.length}</span>`);
 
   const supOk = sup.filter(s => L.supl[s.id]).length;
@@ -853,7 +974,7 @@ function renderPlano(){
   if (planSeg === 'dieta'){
     P().refeicoes.forEach((m,k) => {
       h += `<div class="pe"><div class="pe2" style="grid-template-columns:1fr 110px;margin-top:0"><label>Refeição<input data-pf="mnome" data-i="${k}" value="${esc(m.nome)}"></label><label>Horário<input type="time" data-pf="mhora" data-i="${k}" value="${esc(m.hora||'')}"></label></div>
-        <div class="f" style="margin-top:8px"><label>Itens (um por linha)<textarea rows="3" data-pf="mitens" data-i="${k}">${esc((m.itens||[]).join('\n'))}</textarea></label></div>
+        <div class="f" style="margin-top:8px"><label>Itens (um por linha). Use "Proteína: a | b" pra opções, "Fixo:", "Opcional:", "Opção 1: a; b" e "Especial (2x): a; b"<textarea rows="5" data-pf="mitens" data-i="${k}">${esc((m.itens||[]).join('\n'))}</textarea></label></div>
         <div class="pe3"><button class="mini" data-act="mup" data-i="${k}" ${k===0?'disabled':''} aria-label="Subir">↑</button><button class="mini" data-act="mdown" data-i="${k}" ${k===P().refeicoes.length-1?'disabled':''} aria-label="Descer">↓</button><button class="mini danger" data-act="mdel" data-i="${k}">Remover</button></div></div>`;
     });
     h += '<button class="add" data-act="madd2">+ Refeição</button>';
@@ -910,6 +1031,7 @@ function renderProg(){
   dksP.forEach(k => Object.values(S[k].treino||{}).forEach(r => (r.series||[]).forEach(x => { if (!x.ok) return; const v = num(x.kg); if (v != null && (!best[r.nome] || v > best[r.nome].kg)) best[r.nome] = { kg:v, data:k.slice(4) }; })));
   const bl = Object.entries(best).sort((a, b) => b[1].data < a[1].data ? -1 : 1).slice(0, 5);
   if (bl.length) h += '<h2 class="sh2">Recordes</h2><div class="clst">' + bl.map(([n, v]) => `<div class="cli"><i style="background:#FFC93C"></i><span class="lm"><b>${esc(n)}</b><span>${fmtD(v.data)}</span></span><b class="led amb cv">${fmtN(v.kg)} kg</b></div>`).join('') + '</div>';
+  h += avalHtml();
   const mes = hoje().slice(0, 7), dm = dksP.filter(k => k.slice(4, 11) === mes);
   const treinosMes = dm.filter(k => { const X = S[k]; return X.cardio || Object.values(X.ativ||{}).some(Boolean) || Object.values(X.treino||{}).some(r => (r.series||[]).some(x => x.ok)); }).length;
   const prMes = dm.reduce((a, k) => a + recordes(S[k], k.slice(4)).length, 0);
@@ -1196,7 +1318,7 @@ function renderLog(){
       const ph = sg ? String(sg.kg).replace('.', ',') : last && last[k] ? last[k].kg : '';
       h += `<div class="ctr ${x.ok ? 'ok' : ''}"><span class="sn">${k + 1}</span><span class="pv">${esc(pv)}</span>
         <input inputmode="decimal" aria-label="Carga série ${k + 1}" data-f="kg" data-ex="${e.id}" data-i="${k}" value="${esc(x.kg)}" placeholder="${esc(ph || '')}">
-        <input inputmode="numeric" aria-label="Repetições série ${k + 1}" data-f="reps" data-ex="${e.id}" data-i="${k}" value="${esc(x.reps)}" placeholder="${esc(numReps(e.reps))}">
+        <input inputmode="numeric" aria-label="Repetições série ${k + 1}" data-f="reps" data-ex="${e.id}" data-i="${k}" value="${esc(x.reps)}" placeholder="${esc(String(topReps(e.reps) || numReps(e.reps)))}">
         <button class="cck" data-act="setok" data-ex="${e.id}" data-i="${k}" aria-label="Concluir série ${k + 1}">${CHECK}</button></div>`;
     });
     h += `</div><div class="cadd"><button data-act="addset" data-ex="${e.id}">+ série</button>${r.series.length > 1 ? `<button data-act="delset" data-ex="${e.id}" data-i="${r.series.length - 1}">− série</button>` : ''}</div>`;
@@ -1545,6 +1667,9 @@ VIEW.addEventListener('click', async e => {
     case 'cardio': L.cardio = !L.cardio; touch(cur); keepScroll(render); return;
     case 'ativ': L.ativ[id] = !L.ativ[id]; touch(cur); keepScroll(render); return;
     case 'ref': L.ref[id] = !L.ref[id]; touch(cur); keepScroll(render); return;
+    case 'refc': case 'refg': { L.refEsc = L.refEsc || {}; const m = P().refeicoes.find(x => x.id === id), R = refParse(m), e = refEsc(L, m, R); const v = parseInt(b.dataset.v);
+      if (a === 'refc') e.c = v; else { e.g = e.g.slice(); e.g[parseInt(b.dataset.g)] = v; }
+      L.refEsc[id] = e; touch(cur); keepScroll(render); return; }
     case 'supl': L.supl[id] = !L.supl[id]; touch(cur); keepScroll(render); return;
     case 'agua': L.agua = Math.max(0, (L.agua||0) + parseInt(b.dataset.v)); touch(cur); keepScroll(render); return;
 

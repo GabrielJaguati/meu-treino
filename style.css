@@ -846,3 +846,27 @@ body.em-modo #app{padding-bottom:calc(20px + env(safe-area-inset-bottom))}
 .ctxt{display:flex;gap:8px;margin-top:6px}
 .ctxt input{flex:1;min-height:42px;border:1px solid var(--line2);border-radius:11px;background:var(--bg);color:var(--ink);padding:0 12px;font:600 15px Archivo,system-ui,sans-serif}
 .csheet .cli{background:var(--surface)}
+/* refeições com opções (consultoria) */
+.rf{border-top:1px solid var(--line)}
+.rf:first-child{border-top:0}
+.rf .row{border-top:0}
+.rop{display:flex;flex-direction:column;gap:6px;padding:0 4px 10px 44px}
+.rg2{font-size:11px;font-weight:800;letter-spacing:.06em;color:#8A8884;text-transform:none}
+.rchips{display:flex;flex-wrap:wrap;gap:6px}
+.rchips button{border:1px solid var(--line2);background:var(--bg);color:#D9D7D2;border-radius:12px;padding:8px 11px;font:600 13px Archivo,system-ui,sans-serif;text-align:left;min-height:36px}
+.rchips button.on{background:#D7191F;border-color:#D7191F;color:#fff;box-shadow:0 0 10px rgba(215,25,31,.35)}
+.rlist{margin:0;padding:0 0 0 16px;font-size:13px;color:#D9D7D2;line-height:1.5}
+.rop .rlist{padding-left:16px}
+.rf>.rlist{margin:0 4px 10px 44px}
+.rdica{margin:0 4px 10px 44px;font-size:12px;color:var(--muted);line-height:1.4}
+.rwarn{margin:0 4px 10px 44px;font-size:12px;font-weight:700;color:#FF6159}
+/* avaliação física */
+.cboard em{font-style:normal;font-size:11px;font-weight:800}
+em.ok{font-style:normal;color:#3DD68C}em.bad{font-style:normal;color:#FF6159}
+.avd summary{cursor:pointer;margin-top:8px;font-size:13px;font-weight:700;color:#D9D7D2;list-style:none}
+.avd summary::before{content:'▸ ';color:var(--muted)}
+.avd[open] summary::before{content:'▾ '}
+.avt{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px}
+.avt div{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:5px 0;border-bottom:1px solid var(--line)}
+.avt span{color:var(--muted)}
+.avt b em{font-size:11px;margin-left:4px}
